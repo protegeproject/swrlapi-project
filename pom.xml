@@ -17,13 +17,13 @@
   <artifactId>swrltab-project</artifactId>
   <packaging>pom</packaging>
   <version>1.0</version>
-  <name>SWRLTab Project</name>
-  <url>http://protege.stanford.edu/</url>
+  <name>SWRLTab Project Builder</name>
   
   <modules>
     <module>../swrlapi</module>
     <module>../swrlapi-drools-engine</module>
     <module>../swrltab</module>
+    <module>../swrltab-plugin</module>
   </modules>
 
 </project>
