@@ -13,7 +13,7 @@ To run the build process in this project, you must have the following items inst
 + Apache's [Maven](http://maven.apache.org/index.html).
 + A tool for checking out a [Git](http://git-scm.com/) repository.
 
-#### Build 
+#### Building
 
 Create a suitable local directory and then clone the core SWRLAPI- and SWRLTab-related projects as follows:
 
