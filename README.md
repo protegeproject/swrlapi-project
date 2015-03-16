@@ -15,7 +15,7 @@ To run the build process in this project, you must have the following items inst
 
 #### Build 
 
-1. Create a suitable local directory and then clone the five SWRLAPI- and SWRLTab-related projects as follows:
+Create a suitable local directory and then clone the core SWRLAPI- and SWRLTab-related projects as follows:
 
     git clone https://github.com/protegeproject/swrlapi.git
     git clone https://github.com/protegeproject/swrlapi-drools-engine.git
@@ -23,11 +23,11 @@ To run the build process in this project, you must have the following items inst
     git clone https://github.com/protegeproject/swrltab-plugin.git
     git clone https://github.com/protegeproject/swrltab-project.git
 
-2. Change into the SWRLTab Project directory:
+Change into the SWRLTab Project directory:
 
     cd swrltab-project
 
-3. Build everything with Maven:
+Build everything with Maven:
 
     mvn clean install
 
