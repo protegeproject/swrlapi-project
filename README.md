@@ -1,6 +1,6 @@
 ## SWRLTab Build Project
 
-This project contains a Maven POM that builds all the core SWRLAPI- and SWRLTab-related projects.
+This project contains a Maven POM that builds a core set of SWRLAPI- and SWRLTab-related projects.
 Currently it builds the [SWRLAPI](https://github.com/protegeproject/swrlapi.git), 
 the [SWRLAPI Drools Engine](https://github.com/protegeproject/swrlapi-drools-engine.git), 
 the standalone [SWRLTab](https://github.com/protegeproject/swrltab.git) application, 
@@ -31,5 +31,5 @@ Build everything with Maven:
 
     mvn clean install
 
-See the documentation for the [Protege SWRLTab Plugin](https://github.com/protegeproject/swrltab-plugin.git) for details on installing the generated SWRLTab plugin in your local Protege installation.
+See the documentation for the [Protégé SWRLTab Plugin](https://github.com/protegeproject/swrltab-plugin.git) for details on installing the generated SWRLTab plugin in your local Protégé installation.
 
