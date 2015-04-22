@@ -22,6 +22,7 @@ Create a suitable local directory and then clone the core SWRLAPI- and SWRLTab-r
     git clone https://github.com/protegeproject/swrltab.git
     git clone https://github.com/protegeproject/swrltab-plugin.git
     git clone https://github.com/protegeproject/swrltab-project.git
+    git clone https://github.com/protegeproject/swrlapi-integration-tests.git
 
 Change into the SWRLTab Project directory:
 
