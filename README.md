@@ -24,13 +24,18 @@ Create a suitable local directory and then clone the core SWRLAPI- and SWRLTab-r
     git clone https://github.com/protegeproject/swrltab-project.git
     git clone https://github.com/protegeproject/swrlapi-integration-tests.git
 
-Change into the SWRLTab Project directory:
+Change into the SWRLTab project directory:
 
     cd swrltab-project
 
-Build everything with Maven:
+And then build everything with Maven:
 
     mvn clean install
 
+The SWRLAPI integration tests can take quite a while to run. You can skip them as follows:
+
+    mvn -DskipTests=true clean install
+
+Documentation for the SWRLAPI library can be found [here](https://github.com/protegeproject/swrlapi/wiki).
 See the documentation for the [Protégé SWRLTab Plugin](https://github.com/protegeproject/swrltab-plugin.git) for details on installing the generated SWRLTab plugin in your local Protégé installation.
 
