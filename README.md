@@ -40,3 +40,7 @@ The SWRLAPI integration tests can take quite a while to run. You can skip them a
 Documentation for the SWRLAPI library can be found [here](https://github.com/protegeproject/swrlapi/wiki).
 See the documentation for the [Protégé SWRLTab Plugin](https://github.com/protegeproject/swrltab-plugin.git) for details on installing the generated SWRLTab plugin in your local Protégé installation.
 
+#### License
+
+The software is licensed under the [BSD 2-clause License](https://github.com/protegeproject/swrltab-project/blob/master/license.txt).
+
