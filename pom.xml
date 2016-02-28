@@ -24,6 +24,7 @@
     <module>../swrlapi-drools-engine</module>
     <module>../swrltab</module>
     <module>../swrltab-plugin</module>
+    <module>../swrlapi-example</module>
     <module>../swrlapi-integration-tests</module>
   </modules>
 
