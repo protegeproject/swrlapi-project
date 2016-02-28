@@ -6,15 +6,14 @@ the [SWRLAPI Drools Engine](https://github.com/protegeproject/swrlapi-drools-eng
 the standalone [SWRLTab](https://github.com/protegeproject/swrltab.git) application, 
 and the [Protégé SWRLTab Plugin](https://github.com/protegeproject/swrltab-plugin.git).
 
-#### Prerequisites
+
+#### Building
 
 To run the build process in this project, you must have the following items installed:
 
 + A tool for checking out a [Git](http://git-scm.com/) repository.
 + Apache's [Maven](http://maven.apache.org/index.html).
 + [Java 8](http://www.oracle.com/technetwork/java/javase/downloads/index.html)
-
-#### Building
 
 Create a suitable local directory and then clone the core SWRLAPI- and SWRLTab-related projects as follows:
 
@@ -23,6 +22,7 @@ Create a suitable local directory and then clone the core SWRLAPI- and SWRLTab-r
     git clone https://github.com/protegeproject/swrltab.git
     git clone https://github.com/protegeproject/swrltab-plugin.git
     git clone https://github.com/protegeproject/swrltab-project.git
+    git clone https://github.com/protegeproject/swrlapi-example.git
     git clone https://github.com/protegeproject/swrlapi-integration-tests.git
 
 Change into the SWRLTab project directory:
