@@ -1,10 +1,12 @@
 ## SWRLTab Build Project
 
-This project contains a Maven POM that builds a core set of SWRLAPI- and SWRLTab-related components.
+This project contains a Maven POM that builds a core set of SWRLAPI-related components.
 Currently it builds the [SWRLAPI](https://github.com/protegeproject/swrlapi.git), 
 the [SWRLAPI Drools Engine](https://github.com/protegeproject/swrlapi-drools-engine.git), 
+the [SWRLAPI Example](https://github.com/protegeproject/swrlapi-example.git) project, 
+the [SWRLAPI Integration Tests](https://github.com/protegeproject/swrlapi-integration-tests.git) project, 
 the standalone [SWRLTab](https://github.com/protegeproject/swrltab.git) application, 
-and the [Protégé SWRLTab Plugin](https://github.com/protegeproject/swrltab-plugin.git).
+the [Protégé SWRLTab Plugin](https://github.com/protegeproject/swrltab-plugin.git).
 
 
 #### Building
@@ -15,19 +17,28 @@ To run the build process in this project, you must have the following items inst
 + Apache's [Maven](http://maven.apache.org/index.html).
 + [Java 8](http://www.oracle.com/technetwork/java/javase/downloads/index.html)
 
-Create a suitable local directory and then clone the core SWRLAPI- and SWRLTab-related projects as follows:
+Create a suitable local directory and then clone the core SWRLAPI-related projects as follows:
 
+    git clone https://github.com/protegeproject/swrlapi-parent.git
+    git clone https://github.com/protegeproject/swrlapi-project.git
     git clone https://github.com/protegeproject/swrlapi.git
     git clone https://github.com/protegeproject/swrlapi-drools-engine.git
-    git clone https://github.com/protegeproject/swrltab.git
-    git clone https://github.com/protegeproject/swrltab-plugin.git
-    git clone https://github.com/protegeproject/swrltab-project.git
     git clone https://github.com/protegeproject/swrlapi-example.git
     git clone https://github.com/protegeproject/swrlapi-integration-tests.git
+    git clone https://github.com/protegeproject/swrltab.git
+    git clone https://github.com/protegeproject/swrltab-plugin.git
 
-Change into the SWRLTab project directory:
+Change into the SWRLAPI parent directory:
 
-    cd swrltab-project
+    cd swrlapi-parent
+
+And then build the parent project with Maven:
+
+    mvn clean install
+
+Then change into the project directory:
+
+   cd ../swrlapi-project
 
 And then build everything with Maven:
 
@@ -44,3 +55,9 @@ See the documentation for the [Protégé SWRLTab Plugin](https://github.com/prot
 
 The software is licensed under the [BSD 2-clause License](https://github.com/protegeproject/swrltab-project/blob/master/license.txt).
 
+#### Questions
+
+If you have questions about this project, please go to the main
+Protégé website and subscribe to the [Protégé Developer Support
+mailing list](http://protege.stanford.edu/support.php#mailingListSupport).
+After subscribing, send messages to protege-dev at lists.stanford.edu.

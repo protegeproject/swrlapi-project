@@ -14,18 +14,18 @@
   </organization>
 
   <groupId>edu.stanford.swrl</groupId>
-  <artifactId>swrltab-project</artifactId>
+  <artifactId>swrlapi-project</artifactId>
   <packaging>pom</packaging>
   <version>1.0.0</version>
-  <name>SWRLTab Project Builder</name>
+  <name>SWRLAPI Project Builder</name>
   
   <modules>
     <module>../swrlapi</module>
     <module>../swrlapi-drools-engine</module>
-    <module>../swrltab</module>
-    <module>../swrltab-plugin</module>
     <module>../swrlapi-example</module>
     <module>../swrlapi-integration-tests</module>
+    <module>../swrltab</module>
+    <module>../swrltab-plugin</module>
   </modules>
 
 </project>
