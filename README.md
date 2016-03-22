@@ -1,4 +1,4 @@
-## SWRLTab Build Project
+## SWRLAPI Build Project
 
 This project contains a Maven POM that builds a core set of SWRLAPI-related components.
 Currently it builds the [SWRLAPI](https://github.com/protegeproject/swrlapi.git), 
