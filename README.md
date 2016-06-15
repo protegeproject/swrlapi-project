@@ -6,7 +6,7 @@ the [SWRLAPI Drools Engine](https://github.com/protegeproject/swrlapi-drools-eng
 the [SWRLAPI Example](https://github.com/protegeproject/swrlapi-example.git) project, 
 the [SWRLAPI Integration Tests](https://github.com/protegeproject/swrlapi-integration-tests.git) project, 
 the standalone [SWRLTab](https://github.com/protegeproject/swrltab.git) application, 
-the [Protégé SWRLTab Plugin](https://github.com/protegeproject/swrltab-plugin.git).
+and the [Protégé SWRLTab Plugin](https://github.com/protegeproject/swrltab-plugin.git).
 
 
 #### Building
@@ -38,7 +38,7 @@ And then build the parent project with Maven:
 
 Then change into the project directory:
 
-   cd ../swrlapi-project
+    cd ../swrlapi-project
 
 And then build everything with Maven:
 
