@@ -22,3 +22,7 @@ target/*
 # Protege 3 project and repository files
 *.repository
 *.pprj
+
+pom.xml.releaseBackup
+release.properties
+pom.xml.versionsBackup
