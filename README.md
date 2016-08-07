@@ -1,5 +1,7 @@
 ## SWRLAPI Build Project
 
+[![Build Status](https://travis-ci.org/protegeproject/swrlapi-project.svg?branch=master)](https://travis-ci.org/protegeproject/swrlapi-project)
+
 This project contains a Maven POM that builds a core set of SWRLAPI-related components.
 Currently it builds the [SWRLAPI](https://github.com/protegeproject/swrlapi.git), 
 the [SWRLAPI Drools Engine](https://github.com/protegeproject/swrlapi-drools-engine.git), 
