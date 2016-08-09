@@ -33,10 +33,11 @@
   <modules>
     <module>../swrlapi</module>
     <module>../swrlapi-drools-engine</module>
-    <module>../swrlapi-example</module>
-    <module>../swrlapi-integration-tests</module>
-    <module>../swrltab</module>
     <module>../swrltab-plugin</module>
+    <module>../swrlapi-example</module>
+    <module>../swrlapi-builtin-library-example</module>
+    <module>../swrltab</module>
+    <module>../swrlapi-integration-tests</module>
   </modules>
 
 </project>
