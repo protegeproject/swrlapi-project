@@ -15,7 +15,7 @@
 
   <groupId>edu.stanford.swrl</groupId>
   <artifactId>swrlapi-project</artifactId>
-  <version>1.1.1</version>
+  <version>1.1.2</version>
   <name>SWRLAPI Project Builder</name>
   <packaging>pom</packaging>
 
@@ -33,10 +33,11 @@
   <modules>
     <module>../swrlapi</module>
     <module>../swrlapi-drools-engine</module>
-    <module>../swrlapi-example</module>
-    <module>../swrlapi-integration-tests</module>
-    <module>../swrltab</module>
     <module>../swrltab-plugin</module>
+    <module>../swrlapi-example</module>
+    <module>../swrlapi-builtin-library-example</module>
+    <module>../swrltab</module>
+    <module>../swrlapi-integration-tests</module>
   </modules>
 
 </project>
