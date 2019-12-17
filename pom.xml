@@ -15,7 +15,7 @@
 
   <groupId>edu.stanford.swrl</groupId>
   <artifactId>swrlapi-project</artifactId>
-  <version>2.0.6</version>
+  <version>2.0.7</version>
   <name>SWRLAPI Project Builder</name>
   <description>Utility project to built all SWRLAPI-related components</description>
   <packaging>pom</packaging>
