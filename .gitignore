@@ -26,3 +26,6 @@ target/*
 pom.xml.releaseBackup
 release.properties
 pom.xml.versionsBackup
+
+# Local release upload receipts
+/release/target/

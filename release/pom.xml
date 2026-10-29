@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>edu.stanford.swrl</groupId>
+  <artifactId>swrlapi-release-reactor</artifactId>
+  <version>1.0-SNAPSHOT</version>
+  <packaging>pom</packaging>
+  <name>SWRLAPI coordinated release</name>
+  <modules>
+    <module>../../swrlapi-parent</module>
+    <module>../../swrlapi</module>
+    <module>../../swrlapi-drools-engine</module>
+    <module>../../swrltab-plugin</module>
+    <module>../../swrltab</module>
+  </modules>
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.sonatype.central</groupId>
+        <artifactId>central-publishing-maven-plugin</artifactId>
+        <version>0.12.0</version>
+        <extensions>true</extensions>
+        <inherited>false</inherited>
+        <configuration>
+          <!-- This aggregator coordinates publication but is not itself released. -->
+          <skipPublishing>true</skipPublishing>
+          <publishingServerId>central</publishingServerId>
+          <autoPublish>false</autoPublish>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+</project>
