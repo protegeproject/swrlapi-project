@@ -36,7 +36,28 @@ python3 release/portal.py status DEPLOYMENT_ID
 
 Do not repeat upload after an uncertain response; first check the Portal to avoid duplicates. `portal.py` does not log token values. Maven-encrypted credentials should use the Maven publishing plugin instead of this helper.
 
-After the Portal reports PUBLISHED, verify the five artifact POMs are available from Maven Central, then advance development:
+After the Portal reports PUBLISHED, verify the five artifact POMs are available from Maven Central.
+
+Update `master` in each of the five released repositories from the release tag, not from `development` (which may already contain the next snapshot version). Run the following in dependency order: `swrlapi-parent`, `swrlapi`, `swrlapi-drools-engine`, `swrltab-plugin`, and `swrltab`.
+
+```sh
+git checkout master
+git pull --ff-only origin master
+git merge -X theirs --no-ff --no-commit release-2.1.4
+# Review the staged changes and any differences from the release tag.
+git diff --cached
+git diff release-2.1.4
+mvn install
+git commit -m "Release 2.1.4"
+git push origin master
+git checkout development
+```
+
+`-X theirs` favors the release tag for conflicting changes; it preserves non-conflicting master changes, so review the result. Do not move the release tags. The examples, integration tests, and project aggregator are not released and do not receive these release-tag merges.
+
+For SWRLTab plugin releases, update `src/main/resources/readme.html` and `update-info/protege-5/update.properties` before creating the release tag. Upload the verified plugin JAR to the corresponding GitHub release and verify that the auto-update download URL resolves to that exact artifact before advertising the update.
+
+Advance development if it has not already been advanced:
 
 ```sh
 python3 release/set-version.py 2.1.5-SNAPSHOT
