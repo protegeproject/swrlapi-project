@@ -155,6 +155,33 @@ aliases resolve to the canonical file, local guidance links resolve, roadmap
 numbering is contiguous, and changed repositories pass the whitespace check.
 SWRLTab/plugin builds and full RL/DL conformance are outside this verification.
 
+## Protégé Plugin Development References
+
+Reviewed 2026-11-26; these references support the deferred plugin migration and
+do not establish that SWRLTab has been built or tested with Protégé 6.
+
+- [Protégé 6 migration requirements](https://github.com/protegeproject/protege/issues/1367):
+  the documentation issue remains open. Its checklist covers OWLAPI 5.5.1,
+  Java Optional, visitor interfaces, Maven dependencies, OSGi import ranges,
+  collection/stream API boundaries, and testing in an assembled distribution.
+- [SPARQL Query plugin](https://github.com/protegeproject/sparql-query-plugin):
+  its current README describes version 4 targeting Protégé 6, OWLAPI 5.5.1,
+  Java 11, and RDF Library 4. It gives Maven build commands and an interactive
+  verification procedure using both bundle JARs in an assembled Protégé 6.
+  The live GitHub API confirmed these settings at revision
+  [`a357a48`](https://github.com/protegeproject/sparql-query-plugin/blob/a357a48d5559799b429c1327f3b8c22173084e13/pom.xml),
+  with `protege.version` set to `6.0.0-alpha-1`; cached pages can show the old POM.
+  [Migration issue](https://github.com/protegeproject/protege/issues/1358)
+  is closed. This is a concrete migration reference, not a local validation result.
+- [Generic plugin examples](https://github.com/protegeproject/protege-plugin-examples):
+  small tabs, views, menus, plugin descriptors, and Maven OSGi packaging. The
+  examined POM still targets `protege-editor-owl` 5.0.0 and Java 8; adapt its
+  dependencies and bundle imports rather than treating it as a Protégé 6 template.
+- [Protégé 6 plugin registry](https://github.com/protegeproject/autoupdate):
+  `update-info/6.0.0/plugins.repository` lists compatible released plugins.
+  The repository documents a validator that checks downloaded bundle identities
+  and versions; this does not replace interactive workflow verification.
+
 ## Shared Agent Entry Points
 
 The version-controlled rules are in `swrlapi-project/AGENTS.md`. Workspace

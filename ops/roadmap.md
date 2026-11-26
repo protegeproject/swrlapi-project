@@ -27,6 +27,9 @@ and operating instructions in [runbook.md](runbook.md).
    transitive dependencies and Maven plugins across the sibling projects, including
    POI and its XMLBeans/Commons dependencies. Check supported stable releases,
    security fixes, Java requirements, dependency convergence, and OSGi compatibility.
+   Triage the default-branch dependency alerts reported by GitHub for
+   `swrlapi-parent` on 2026-11-26 (one high, two moderate, one low); establish which
+   also affect `protege-6` before selecting upgrades.
    Manage shared versions in `swrlapi-parent` and upgrade in reviewable groups,
    keeping the Drools major-version assessment separate. Completion: dependency-tree
    evidence, spreadsheet import/export and round-trip regressions where affected,
