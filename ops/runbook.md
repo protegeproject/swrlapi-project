@@ -2,9 +2,10 @@
 
 The shared [development rules](../AGENTS.md) apply to every sibling repository.
 This runbook covers the compatibility-first OWLAPI 5 port and its Drools engine.
-The ordered backlog lives in [roadmap.md](roadmap.md). The Protégé 6 plugin is
-under experimental validation. The internal OWLAPI streams migration preserves
-the public SWRLAPI API; standalone SWRLTab remains deferred.
+The ordered backlog lives in [roadmap.md](roadmap.md). The Protégé 6 plugin and
+standalone application pass the local migration gates described below. The
+internal OWLAPI streams migration preserves the public SWRLAPI API. These are
+development builds; public release and host upstream integration are separate.
 
 ## Checkout layout and versions
 
@@ -17,7 +18,7 @@ swrlapi-drools-engine/
 swrlapi-example/
 swrlapi-integration-tests/
 swrlapi-project/           # aggregator and this ops directory
-swrltab/                  # deferred
+swrltab/                  # standalone application
 swrltab-plugin/            # Protégé 6 alpha experiment
 ```
 
@@ -32,7 +33,7 @@ The `protege-6` branches incorporate upstream `development` through the coordina
 2.0.16 for the core; upstream's OWLAPI 4 / SLF4J 1.7 choices apply to its older host.
 The core/full profiles remain separate. Central Portal publishing configuration and
 upstream release scripts are retained; no deployment, release tag, or publication
-was performed. The release reactor still requires separate plugin validation.
+was performed. Release preparation is described in [release/README.md](../release/README.md).
 
 Each directory is a separate Git repository. Inspect status in each relevant
 repository; the enclosing workspace is not a single repository. Preserve unrelated
@@ -44,7 +45,7 @@ Run from the enclosing workspace directory:
 
 ```sh
 export JAVA_HOME=/Library/Java/JavaVirtualMachines/jdk-17.jdk/Contents/Home
-mvn -o -B -f swrlapi-project/pom.xml -Pcore,static-analysis clean verify
+mvn -o -B -f swrlapi-project/pom.xml -Pfull,static-analysis clean verify
 ```
 
 Use the appropriate JDK 17 path on other machines. `-o` uses the local Maven cache;
@@ -53,9 +54,12 @@ through the configured repositories. Avoid running concurrent Maven builds again
 these same module output directories.
 
 The `core` profile builds the parent, library, Drools engine, example, and integration
-tests. The default `full` profile includes the deferred plugin modules; it is not the
-core migration gate. `verify` is required: `test` alone does not run and check the
-Failsafe integration suite.
+tests. The default `full` profile adds the Protégé plugin and standalone application.
+Use `-Pcore,standalone,static-analysis` for the standalone gate without host APIs,
+or `-Pcore,protege-plugin,static-analysis` for the plugin gate without standalone.
+When host sources change, use the combined host reactor below so consumers use
+current producer artifacts. `verify` is required: `test` alone does not run and
+check the Failsafe integration suite.
 
 SpotBugs runs at maximum effort and high confidence, failing the build for findings
 or analyzer errors. The old Checker Framework 1.9.13 / JDK 8 annotation processor is
@@ -85,6 +89,8 @@ Inspect module reports:
 - `swrlapi/target/surefire-reports/`: library unit and contract tests.
 - `swrlapi-drools-engine/target/surefire-reports/`: isolated rule and converter tests.
 - `swrlapi-integration-tests/target/failsafe-reports/`: public API and query tests.
+- `swrltab-plugin/target/surefire-reports/`: rendering, registration, and lifecycle tests.
+- `swrltab/target/failsafe-reports/`: assembled standalone application test.
 - Each production module's `target/spotbugsXml.xml`: static-analysis findings.
 
 Check `BUILD SUCCESS`, test counts, failures, errors, and skips. A failed Failsafe
@@ -143,14 +149,9 @@ inference support.
 
 The before/after `javap -public -s` comparison is identical across all 454 library,
 154 Drools engine, and 10 plugin classes: public signatures and JVM descriptors
-are unchanged. The rebuilt plugin embeds the current library and engine jars
-byte-for-byte. Packaged Protégé 6 alpha-1 OSGi validation passes for both tab classes,
-rule/variable rendering, arithmetic result `5`, third-party query result `42` with
-an empty negative control, and independent `Adult` / `ContributedAdult` inference.
-Log: `/tmp/swrlapi-streams-complete-osgi.log`; plugin SHA-256:
-`bf460dda08a6b8314b54d52e2ccebca4f2ef1a3b1703411cdb45f7cf89648308`.
-This is a packaged framework check; the graphical host was not rerun for this
-internal refactor. The full Maven gate is recorded below.
+are unchanged. The plugin embeds the current library and engine jars byte-for-byte.
+Subsequent full-build and graphical migration checks also cover these stream-based artifacts;
+see the current evidence below.
 
 ## Runtime behavior and boundaries
 
@@ -190,33 +191,57 @@ retain the historical JVM-default-timezone interpretation.
 
 ## Last validation
 
-Verified **2026-11-26**, JDK 17, with the full offline
-`mvn -o -B -f swrlapi-project/pom.xml -Pcore,protege-plugin,static-analysis verify`
-gate: **BUILD SUCCESS**.
+Verified **2026-11-26**, JDK 17 and Maven 3.9.14: **BUILD SUCCESS** for the combined
+host and `-Pfull,static-analysis clean verify` reactor. Fresh sibling clones were
+overlaid with the current source changes and built without copied `target`
+directories or installed copies of the modified host. The host's reactor outputs
+were consumed directly by the plugin. This validates clean-source packaging;
+the source changes were uncommitted, so this is not a tagged release build.
 
 | Suite | Tests | Failures | Errors | Skipped |
 | --- | ---: | ---: | ---: | ---: |
 | Library unit/contract tests | 209 | 0 | 0 | 0 |
 | Drools engine unit/rule tests | 76 | 0 | 0 | 0 |
-| Plugin unit/contract tests | 21 | 0 | 0 | 0 |
-| Public API/query integration tests | 680 | 0 | 0 | 0 |
-| Total | 986 | 0 | 0 | 0 |
+| Plugin unit/contract tests | 23 | 0 | 0 | 0 |
+| Standalone packaged-application integration test | 1 | 0 | 0 | 0 |
+| Public API/query integration tests | 681 | 0 | 0 | 0 |
+| SWRLAPI total | 990 | 0 | 0 | 0 |
+| Protégé host tests | 558 | 0 | 0 | 3 |
 
-SpotBugs reported **zero high-confidence findings** in all analyzed production
-modules. Coverage includes 54 isolated RL rule cases, 20 chain/key/datatype
-integration tests, 11 duration integration tests, and 21 reasoner lifecycle/API
-tests. Three rule-editing regressions cover adding a rule after querying, replacing
-and deleting compiled rules, and edits processed by the UI model listener. Two
-failed before the cache fix. The engine compares source axioms (including imports)
-as well as change flags before reusing compiled rules, because UI model processing
-can clear the bridge flag before a run.
+The host's three existing skips are native file-chooser cases in
+`MacUIUtil_TestCase`, excluded when headless; 555 host tests passed. The host suite
+also accesses public ontology/prefix services, unlike the offline SWRLAPI core
+gate. SpotBugs reports zero findings, analyzer errors, or missing classes across
+all five analyzed SWRLAPI production modules. No formatter gate is configured;
+nullness type checking remains separate roadmap work.
 
-The local full build log is `/tmp/swrlapi-streams-complete-final.log`; durable test/report
-locations are listed above. Documentation checks confirmed that all shared-rule
-aliases resolve to the canonical file, local guidance links resolve, roadmap
-numbering is contiguous, and changed repositories pass the whitespace check.
-The `core` profile alone excludes plugin builds; this combined gate adds the
-plugin profile. Neither gate establishes full RL/DL conformance or graphical UI coverage.
+The query-view regression first failed with expected `7`, actual `5`, then passed
+after replacing the result object in the existing result panel. It also checks
+column-count changes, empty results, result-tab recreation, and exactly one Run
+button. Plugin lifecycle regressions use a positive listener control before
+release and prove that released models no longer receive ontology changes.
+The graphical fixture separately checks dialog reuse, rule editing, query edits,
+ontology switching, initialization failure recovery, and tab close/reopen.
+
+Local evidence:
+
+- Combined clean-source build: `/tmp/swrlapi-fresh-host-reactor.log`.
+- Source/build workspace: `/var/folders/c1/gtt0h33d00z7yg3w_fkfyhl40000gr/T/swrlapi-fresh-sources-q119wq4v`.
+- Query-view failure/pass: `/tmp/swrlapi-query-view-before.log` and
+  `/tmp/swrlapi-query-view-after.log`.
+- Final packaged OSGi check: `/tmp/swrlapi-final-osgi.log`.
+- Final graphical matrix: `/tmp/swrlapi-final-graphical.log` and
+  `/var/folders/c1/gtt0h33d00z7yg3w_fkfyhl40000gr/T/swrlapi-graphical-i6pz7e8b`.
+- Standalone window startup: `/tmp/swrlapi-standalone-graphical.log`.
+
+The exact fresh-built plugin used by both final OSGi and graphical checks has
+SHA-256 `d015a0b3253ec7c58fd4060e1aa0de63f504cfbe7d9484534fbdb37466600b9b`.
+Its embedded core and engine jars match the same build's producers byte-for-byte.
+A final comparison confirmed 2,416 current source/build input files match the fresh
+workspace. Public signatures and JVM descriptors of the three modified library
+classes match their pre-migration counterparts (`javap -public -s`).
+These paths are temporary local evidence; retain the module reports for CI or
+release review. Passing cases do not establish complete OWL RL/DL conformance.
 
 ## Dependency security baseline
 
@@ -237,8 +262,12 @@ An OSV query of the resolved core graph on 2026-11-26 additionally flagged Jacks
 core/databind and XStream. After the updates, **91 distinct resolved Maven
 coordinates/versions** returned **zero OSV matches**. This is a dated advisory
 lookup of declared core dependencies, not a complete binary or plugin security
-assessment. OWLAPI's OSGi jar embeds Jackson 2.16.1; Maven overrides affect the plain
-core classpath, not those nested jars. The plugin roadmap tracks that distinction.
+assessment. Upstream OWLAPI 5.5.1's OSGi jar embeds Jackson 2.16.1; Maven overrides
+affect the plain core classpath, not those nested jars. The modified local host now
+builds its own OWLAPI runtime bundle from the plain distribution, embedding managed
+Jackson 2.21.9 / annotations 2.21. The assembled host verifier checks those actual
+nested bytes and Guava 33.8.0-jre. This does not constitute an advisory audit of
+every dependency in the Protégé distribution.
 POI is not a dependency of this project and is outside this work.
 
 Eight added integration tests cover:
@@ -268,25 +297,57 @@ verification evidence, not release artifacts. Version rationale:
 
 ## Protégé 6 plugin experiment
 
-The host checkout is `/Users/martin/workspace/protege/protege`, branch
-`protege6/release-6.0.0-alpha-1`, revision
-`7c6d34f921cd33affa7aa075e1e28b10236d3648`. This is the release branch, not the
-moving `protege-6` branch. Its unmodified source passed `mvn -B clean install`
-with JDK 17, including host tests (`/tmp/protege6-alpha-build.log`).
-Build/install this host before building the plugin so its alpha artifacts are local.
-
-Build the plugin with the current sibling producers, from the SWRLAPI workspace:
+The host checkout is `/Users/martin/workspace/protege/protege`, review branch
+`swrlapi-protege6-migration`, based on `protege6/release-6.0.0-alpha-1` at
+`7c6d34f921cd33affa7aa075e1e28b10236d3648`. The migration changes are kept on this
+review branch for upstream integration; the baseline is the alpha release branch,
+not the moving `protege-6` branch. Build current host sources and
+all SWRLAPI siblings in one reactor from the SWRLAPI workspace:
 
 ```sh
 export JAVA_HOME=/Library/Java/JavaVirtualMachines/jdk-17.jdk/Contents/Home
+mvn -o -B -f swrlapi-project/ops/experiments/host-reactor.xml \
+  -Dprotege.source=../../../../protege/protege \
+  -Pfull,static-analysis clean verify
+```
+
+`protege.source` is a relative module path from `ops/experiments`, not the shell's
+working directory. For a fresh workspace with `protege` alongside `swrlapi-project`,
+use `../../../protege`. Omit `-o` when the cache lacks dependencies. This reactor
+avoids silently using stale installed host jars and does not install modified
+alpha artifacts over released coordinates in the local Maven repository.
+
+For a focused plugin package with unchanged, already-built host dependencies:
+
+```sh
 mvn -o -B -f swrlapi-project/pom.xml -Pcore,protege-plugin \
   -pl :swrltab-plugin -am package
 ```
 
-This runs producer unit tests and packages the plugin. Run the full core `verify`
-gate separately for integration tests and static analysis. The combined profiles
-exclude the deferred standalone application. The resulting artifact is
+This runs producer unit tests and packages the plugin; it does not replace the
+full `verify` gate. The plugin is
 `swrltab-plugin/target/swrltab-plugin-2.1.5-SNAPSHOT.jar`.
+
+The host parent now manages Guava 33.8.0-jre and the Jackson 2.21.9 BOM. Its new
+`protege-owlapi` module wraps the ordinary OWLAPI 5.5.1 distribution in an OSGi
+bundle (`org.semanticweb.owl.owlapi`, version `5.5.1.protege6alpha1`) with managed
+nested dependencies. Published OWLAPI jars are untouched. Assembly descriptors
+include this wrapper and Guava's `failureaccess`; unused HTTP OSGi adapters are
+excluded to avoid their additional service requirements. Inlined dependencies'
+`module-info.class` files are excluded from host/plugin bundles so a dependency's
+JPMS descriptor cannot misidentify the assembled host on the test classpath.
+
+`Workspace` obtains appearance-menu labels from Swing's registered look-and-feel
+metadata instead of reflectively constructing Apple's unexported Aqua class.
+Two host tests verify name lookup without loading implementation classes. The
+JDK 17 platform-independent graphical launch passes without the former Aqua
+access error.
+
+Clean the host when changing assembly dependency sets. An old OWLAPI jar left in
+`target` previously hid a wrapper-resolution error by supplying a second bundle
+with the same symbolic name. Both the packaged harness and host verifier now
+reject duplicate bundle identities; tests explicitly start and identify the
+actual OWLAPI and Guava bundles.
 
 The plugin uses the host's SLF4J 1.7 API; ordinary core builds retain SLF4J 2.0.16.
 Protégé exports packages at 6.0.0 even though the Maven artifact is an alpha, so
@@ -325,7 +386,7 @@ contribution sets, positive and negative queries, saved-query import, contribute
 rule inference, collision rejection, atomic validation, and cleanup on failure.
 The original four factory cases failed before the fix (three assertion failures
 and the null dereference), recorded in `/tmp/swrlapi-contributor-before.log`.
-The latest combined `-Pcore,protege-plugin,static-analysis verify` results,
+The latest combined `-Pfull,static-analysis clean verify` results,
 including these plugin regressions, are recorded under **Last validation** above.
 The plugin static-analysis gate now reports zero findings and zero analyzer errors;
 the two factory null defects are fixed without suppressions.
@@ -393,120 +454,119 @@ harness checks the declared extension point, an empty contribution registry, and
 ordinary rule/query execution. The registry bootstrap starts the host's SAX parser
 service and Equinox registry; the complete graphical host remains a separate gate.
 
-Run the packaged artifact in a fresh Felix framework using
-[PluginSmoke.java](experiments/PluginSmoke.java):
+### Packaged and graphical validation
+
+Run the assembled-host inventory and packaged semantic checks after building:
 
 ```sh
+protege_dist=/Users/martin/workspace/protege/protege/protege-desktop/target/protege-6.0.0-alpha-1-platform-independent/Protege-6.0.0-alpha-1
+python3 swrlapi-project/ops/experiments/verify-host-bundles.py "$protege_dist"
 java -cp "$HOME/.m2/repository/org/apache/felix/org.apache.felix.main/7.0.5/org.apache.felix.main-7.0.5.jar" \
   swrlapi-project/ops/experiments/PluginSmoke.java \
-  /Users/martin/workspace/protege/protege/protege-desktop/target/protege-6.0.0-alpha-1-platform-independent/Protege-6.0.0-alpha-1 \
-  swrltab-plugin/target/swrltab-plugin-2.1.5-SNAPSHOT.jar \
-  /tmp/swrlapi-plugin-smoke.ttl
+  "$protege_dist" swrltab-plugin/target/swrltab-plugin-2.1.5-SNAPSHOT.jar \
+  /tmp/swrlapi-plugin-smoke.ttl /tmp/swrlapi-contributor-fixture.jar
 ```
 
-Verified 2026-11-26: **PASS**. The actual bundle becomes ACTIVE, both tab classes
-load against the host's packages, axiom rendering preserves built-in prefixes and
-variable names, SQWRL arithmetic returns exactly `5`, and a rule
-infers exactly `Adult(alice)` after an initial empty-result control. The source
-fixture also asserts `Person(alice)` as a positive control. The optional third
-argument writes an ontology before inference for graphical testing. Felix storage
-is isolated in a temporary directory printed by the harness; it does not use the
-user's Protégé plugin cache. This is an OSGi functional test, not a graphical test.
-Log for the earlier cleaned POM and renderer: `/tmp/swrlapi-clean-pom-osgi.log`.
-The contribution and library-prefix version passes in
-`/tmp/swrlapi-prefix-osgi.log`, including exact rendering of the contributed query,
-real registry discovery and both contributed positive/negative execution cases.
-The final empty-contributor packaged check also passes in
-`/tmp/swrlapi-prefix-empty-osgi.log`.
+The final ordinary contributor check passes: the plugin becomes ACTIVE, both tab
+classes load, rule/variable rendering is correct, arithmetic returns exactly `5`,
+the contributed query returns exactly `42` with an empty negative control, and
+rules independently infer `Adult(alice)` and `ContributedAdult(alice)`. The harness
+writes the ontology before inference so the graphical test starts from premises.
+Its Felix storage is isolated from the user's plugin cache. This functional OSGi
+check is distinct from the graphical host gate.
 
-The contribution fixes were also loaded in two separate full macOS applications
-under `/Users/martin/workspace/protege/runtime-contributor-test/` on 2026-11-26:
-`SWRL Empty Test.app` (no contributor) and `SWRL Contributor Test.app` (the separate
-fixture bundle). Both tabs initialized without extension-point or factory errors.
-Their logs are `/tmp/swrlapi-empty-test-user/.Protege/logs/protege.log` and
-`/tmp/swrlapi-contributor-test-user/.Protege/logs/protege.log`; both identify
-Protégé 6.0.0 alpha-1, OWLAPI 5.5.1 and SWRLTab 2.1.5.SNAPSHOT, with no warning or
-error entries. The contributor log identifies the discovered fixture extension.
+Build and run the optional graphical test fixture in a desktop session:
 
-Before the final prefix adjustment, graphical import and Run Drools produced
-`:alice Type :ContributedAdult` and `:alice Type :Adult` in Inferred Axioms.
-After the adjustment, the contributor application was restarted with the rebuilt
-jar; loading `/tmp/swrlapi-contributor-smoke.ttl` visibly showed
-`contributed:answer(?value) -> sqwrl:select(?value)` in both tabs.
-The final built and installed jars match SHA-256
-`ef7db81fafd18ee29531fc6c5e50dd59b192b240fabdff7f541e5df1d332c2b4`.
-The empty-contributor GUI check used the preceding contribution build; the final
-build's empty-contributor behavior is covered by unit and packaged tests.
-Native menu focus/input routing prevented a reliable graphical query Run during
-the final check despite reconnecting and restoring the window; do not treat the
-packaged query result `42` as a verified graphical result. That remaining UI check
-is recorded in the roadmap. Standard tabs and window size were restored.
+```sh
+python3 swrlapi-project/ops/experiments/build-contributor-fixture.py \
+  swrltab-plugin /tmp/swrlapi-graphical-fixture.jar --graphical
+python3 swrlapi-project/ops/experiments/run-graphical-smoke.py \
+  "$protege_dist" swrltab-plugin/target/swrltab-plugin-2.1.5-SNAPSHOT.jar \
+  /tmp/swrlapi-graphical-fixture.jar /tmp/swrlapi-plugin-smoke.ttl \
+  --java-home "$JAVA_HOME"
+```
 
-Local graphical copies are under `/Users/martin/workspace/protege/runtime-alpha-1`
-and `runtime-alpha-1-mac/Protégé.app`. The latter contains the tested plugin in
-`Contents/plugins`; its `Contents/conf/jvm.conf` selects JDK 17 and a test
-`user.home` at `/tmp/swrlapi-protege-mac-user`. JVM properties were verified with
-`jcmd`. Java's macOS preferences can still share existing system-backed settings,
-so do not assume `java.util.prefs.userRoot` fully isolates the native preferences.
-The temporary look-and-feel choice was restored and standard tabs re-enabled.
+The runner copies the distribution and inputs to a temporary directory, launches
+its supported `run.sh` with a test home and the opt-in `swrlapi.guiSmoke` property,
+prints artifact hashes, and checks a bounded result file. It closes its process
+on completion; `--keep-open` retains a successful test application for inspection.
+The fixture runs on Swing's event thread inside the actual Protégé process. It
+selects tables and presses existing buttons, edits through the real modal editor,
+and reads the displayed result model. It is not a native mouse-routing or
+screenshot test; native screenshot attachment failed to identify the Java window.
 
-Graphical procedure: open `/tmp/swrlapi-plugin-smoke.ttl`, enable **Window → Tabs →
-SWRLTab** and **SQWRLTab**, then select each panel. Both panels were observed
-rendering the rule/query table and recognizing Drools. Martin subsequently reported
-on 2026-11-26 that the graphical Run/import/export and query workflows work. This
-closes the previously outstanding manual smoke verification; it is user-reported
-evidence, separate from the automated OSGi test. Repeatable smoke procedure:
+The final graphical matrix passes:
 
-- In SWRLTab, use **OWL+SWRL→Drools**, **Run Drools**, then **Drools→OWL**; inspect
-  `Adult(alice)` in the ontology, not just a success message.
-- In SQWRLTab, select `osgiSmoke` and **Run**; expect one row containing `5`.
-  Run `before` after rule execution and expect `alice`.
+- Contributed query displays one result, `42`; arithmetic displays `5`, then `7`
+  and `9` after two edits through the same editor dialog.
+- SWRL rule editing followed by import, Run Drools, and export adds `Adult(alice)`
+  after checking that it was initially absent.
+- Ontology switches clear views, dispose old editors, unregister old listeners,
+  and release contributed factories; a positive listener control prevents a
+  vacuous cleanup assertion.
+- Deliberately failing contributor initialization releases resources and leaves
+  no stale model; the next ontology switch recovers. Its two expected error log
+  entries are fixture failures, not an ordinary-launch defect.
+- Closing both tabs prevents listener/factory recreation; reopening creates exactly
+  two live factories and the contributed query displays `42` again.
 
-The final cleaned-POM/renderer jar was independently retested through the full
-macOS application on 2026-11-26, using the separate copy
-`/Users/martin/workspace/protege/runtime-rendering-test/SWRL Rendering Test.app`
-and `/tmp/swrlapi-rendering-smoke.ttl`. The built jar and installed jar both have
-SHA-256 `27eb88c14dd72dd5857990a3ce78b11f8f825252a2dc29de0f2ebf34b3d26e72`.
-The application's own log identifies Protégé 6.0.0 alpha-1, OWLAPI 5.5.1,
-JDK 17, and SWRLTab 2.1.5.SNAPSHOT; it is at
-`/tmp/swrlapi-rendering-test-user/.Protege/logs/protege.log`.
+Manual verification uses the same generated ontology: enable **Window → Tabs →
+SWRLTab** and **SQWRLTab**; run **OWL+SWRL→Drools**, **Run Drools**, and
+**Drools→OWL**, then inspect `Adult(alice)`. Run `osgiSmoke` and `contributedAnswer`
+in SQWRLTab and inspect exact values `5` and `42`. Repeat after editing a query and
+switching ontologies. Test copies use a separate home, but macOS Java preferences
+may still share system-backed settings; restore any temporary appearance/tab
+choices. No official distribution or published plugin was replaced.
 
-Observed through computer control: both panels loaded; import transferred nine
-axioms; Run Drools succeeded and the Inferred Axioms table contained
-`:alice Type :Adult`; export reported successful transfer to the OWL model.
-The Asserted Axioms table visibly showed
-`swrlb:add(?sum, 2, 3) -> sqwrl:select(?sum)`.
-Running `osgiSmoke` in SQWRLTab returned one row, and its result table displayed
-column `sum` with value `5`. Native menus enabled the tabs; some Swing controls
-required screenshot-based clicks, and query selection used keyboard navigation
-from the New button after cancelling the editor. The test copy remains open with
-the result visible; the user's previous application was not replaced or closed.
-This is actual graphical-host evidence in addition to the isolated OSGi harness.
+### Standalone application
 
-Broader graphical regressions for editing/deleting rules, switching ontologies,
-and listener lifecycle remain on the roadmap; these additional cases were not
-established by the smoke test.
+The standalone module now uses the same parent/core/engine snapshot and ordinary
+OWLAPI dependency jars. Its application zip retains the main jar and `lib/`
+dependencies separately, preserving service resources. See the
+[standalone README](../../swrltab/README.md) for launch commands.
 
-The platform-independent macOS launcher
-logs an Aqua look-and-feel reflective-access error on JDK 17. Host code in
-`Workspace.addLookAndFeelMenuItem` tries to construct `com.apple.laf.AquaLookAndFeel`
-reflectively to obtain its display name, but `java.desktop` does not export that
-package to the caller. The host catches the exception and omits that appearance
-menu entry; this observed error is outside rule/query execution. The packaged
-macOS application's log did not contain it. A host UI/launcher correction and
-retest remain necessary for the affected launch path.
+The headless packaged-application integration test launches a child JVM using
+only the assembled jar's manifest classpath and test probe. It verifies rule
+inference, a query returning `5`, file save/close/reopen, query edit and another
+save/reopen returning `7`. It rejects obsolete Checker/JDK 8 and OWLAPI OSGi jars
+in the standalone distribution. The optional desktop startup check invokes both
+actual application entry points, requires two visible populated windows, and
+closes them:
 
-The macOS host log is `/tmp/swrlapi-protege-mac-user/.Protege/logs/protege.log`.
-That earlier run confirms plugin 2.1.5.SNAPSHOT and OWLAPI 5.5.1 and contains the
-then-unresolved extension-point warning; the contribution fix and its new test logs
-are described above. The
-alpha host still ships Guava 18 and OWLAPI's nested Jackson 2.16.1. Functional
-success does not establish a patched OSGi distribution. No host sources or
-published OWLAPI artifacts were rewritten, and no plugin release was published.
+```sh
+java -cp swrltab/target/swrltab-2.1.5-SNAPSHOT-application/swrltab-2.1.5-SNAPSHOT/swrltab-2.1.5-SNAPSHOT.jar \
+  swrlapi-project/ops/experiments/StandaloneSmoke.java
+```
+
+### Release metadata
+
+The existing Protégé 5 update feed remains on its released 2.1.4 version. The
+Protégé 6 `update.properties.template` is deliberately unpublished; it uses a
+release-version placeholder and immutable release-tag links for both jar and
+readme. Validate it against the built plugin with the actual host parser:
+
+```sh
+java -cp "$protege_dist/bundles/*" \
+  swrlapi-project/ops/experiments/PluginUpdateSmoke.java \
+  swrltab-plugin/update-info/protege-6/update.properties.template \
+  swrltab-plugin/target/swrltab-plugin-2.1.5-SNAPSHOT.jar
+python3 -m unittest discover -s swrlapi-project/release -p 'test_*.py'
+```
+
+The parser check and all six release-tool tests pass. The parser check renders a
+temporary candidate based on the bundle version, verifies identity/version/tagged URLs, and makes no download or
+publication request. Two release-script tests validate inherited project versions,
+release/next-snapshot SCM tags, absent optional siblings, and wrong-branch rejection
+without writes. Four bundle-verifier tests check inherited versions, mandatory
+standalone zip inclusion, and archive checksum validation; only the external GPG
+call is mocked in those tests. Real release verification still invokes GPG for
+every payload. See [release guidance](../release/README.md) for the separate
+publishing procedure. The modified host must be integrated and identified by a
+release before advertising the plugin's compatibility with a public distribution.
 
 ## Protégé Plugin Development References
 
-Reviewed 2026-11-26; these references complement the local experiment below.
+Reviewed 2026-11-26; these references complement the local experiment above.
 They do not replace testing the assembled plugin and host.
 
 - [Protégé 6 migration requirements](https://github.com/protegeproject/protege/issues/1367):

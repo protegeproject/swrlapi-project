@@ -34,6 +34,7 @@ public class PluginSmoke {
     try {
       framework.start();
       int installed = 0;
+      Map<String, Path> symbolicNames = new HashMap<>();
       try (var files = Files.list(Path.of(args[0], "bundles"))) {
         for (Path path : (Iterable<Path>)files.sorted()::iterator) {
           if (!path.toString().endsWith(".jar") || path.getFileName().toString().equals("org.apache.felix.main.jar"))
@@ -41,6 +42,10 @@ public class PluginSmoke {
           try (JarFile jar = new JarFile(path.toFile())) {
             if (jar.getManifest() == null || jar.getManifest().getMainAttributes().getValue(Constants.BUNDLE_SYMBOLICNAME) == null)
               continue;
+            String name = jar.getManifest().getMainAttributes().getValue(Constants.BUNDLE_SYMBOLICNAME).split(";")[0];
+            Path previous = symbolicNames.putIfAbsent(name, path);
+            if (previous != null)
+              throw new AssertionError("Duplicate host bundle " + name + ": " + previous + " and " + path);
           }
           framework.getBundleContext().installBundle(path.toUri().toString());
           installed++;
@@ -48,6 +53,16 @@ public class PluginSmoke {
       }
       if (installed < 10)
         throw new AssertionError("Incomplete host distribution: " + installed + " bundles");
+      Bundle owlBundle = java.util.Arrays.stream(framework.getBundleContext().getBundles())
+        .filter(bundle -> "org.semanticweb.owl.owlapi".equals(bundle.getSymbolicName()))
+        .findFirst().orElseThrow(() -> new AssertionError("Missing OWLAPI bundle"));
+      owlBundle.start();
+      Bundle guavaBundle = java.util.Arrays.stream(framework.getBundleContext().getBundles())
+        .filter(bundle -> "com.google.guava".equals(bundle.getSymbolicName()))
+        .findFirst().orElseThrow(() -> new AssertionError("Missing Guava bundle"));
+      guavaBundle.start();
+      System.out.println("Host OWLAPI: " + owlBundle.getVersion() + " from " + owlBundle.getLocation());
+      System.out.println("Host Guava: " + guavaBundle.getVersion() + " from " + guavaBundle.getLocation());
       Bundle plugin = framework.getBundleContext().installBundle(Path.of(args[1]).toUri().toString());
       System.out.println("Plugin artifact: " + Path.of(args[1]).toRealPath());
       try {

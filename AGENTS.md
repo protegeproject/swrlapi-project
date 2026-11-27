@@ -24,7 +24,8 @@ Explicit user instructions and agreed scope take precedence over these defaults.
 - Preserve the agreed scope. The current scope includes the core compatibility port,
   an incremental internal OWLAPI streams refactor preserving the public SWRLAPI API,
   and SWRLTab plugin experiments on Protégé `protege6/release-6.0.0-alpha-1`.
-  It does not authorize a Drools major-version upgrade or the standalone SWRLTab port.
+  The standalone SWRLTab port is also authorized. It does not authorize a Drools
+  major-version upgrade.
   Their order and remaining work are in the roadmap. A dependency upgrade is not
   permission to redesign public APIs or product behavior.
 - Report observable outcomes, tested boundaries, and remaining limitations. Do not

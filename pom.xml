@@ -33,6 +33,10 @@
   
   <profiles>
     <profile>
+      <id>standalone</id>
+      <modules><module>../swrltab</module></modules>
+    </profile>
+    <profile>
       <id>protege-plugin</id>
       <modules>
         <module>../swrltab-plugin</module>

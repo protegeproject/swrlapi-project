@@ -11,28 +11,13 @@ and operating instructions in [runbook.md](runbook.md).
    Completion: positive, negative, cross-datatype, and rule-selection tests through
    both isolated rules and the public reasoner; publish a precise support matrix.
 
-2. **SWRLTab / Protégé plugin migration.** Extend graphical regression coverage to
-   rule editing, ontology switching, and listener lifecycle on
-   `protege6/release-6.0.0-alpha-1`.
-   Complete the graphical contributed-query result check (`contributed:answer`
-   returns `42`): packaged execution passes, but native UI automation did not
-   reliably activate the query controls during the latest smoke test.
-   Upgrade the alpha host's Guava 18 and the Jackson 2.16.1 jars embedded in
-   OWLAPI 5.5.1's OSGi bundle, rebuilding affected host imports and validating the
-   assembled distribution. Maven dependency management does not update nested jars.
-   Check the macOS
-   platform-independent launcher's JDK 17 Aqua look-and-feel access error.
-   Port the standalone SWRLTab application separately, then validate clean-checkout
-   packaging and release metadata for Protégé 6. Completion: reproducible plugin
-   packaging and the full UI smoke matrix, in addition to the core and OSGi gates.
-
-3. **Broader OWL 2 RL conformance.** Extend the isolated rule matrix and public API
+2. **Broader OWL 2 RL conformance.** Extend the isolated rule matrix and public API
    tests, including combinations of chains, keys, equality, imports, retractions,
    and datatype constraints. Audit unimplemented conversions and distinguish known
    empty-class detection from general satisfiability. Completion: a documented
    entailment/satisfiability support matrix and targeted regressions for each claim.
 
-4. **Drools upgrade assessment.** Evaluate a separate migration from the currently
+3. **Drools upgrade assessment.** Evaluate a separate migration from the currently
    pinned 7.74.1.Final to Apache KIE / Drools 10.2.0 (latest verified 2026-11-26).
    **Java 17 minimum:** Drools 10 requires Java 17+, raising the library's current
    Java 11 baseline; assess downstream compatibility and update build, runtime,
@@ -48,22 +33,24 @@ and operating instructions in [runbook.md](runbook.md).
    the same semantic regression suite, and a measured upgrade decision. Do not fold
    this into the OWLAPI port or streams refactor.
 
-5. **Temporal edge cases and legacy APIs.** Extend coverage for non-finite duration
+4. **Temporal edge cases and legacy APIs.** Extend coverage for non-finite duration
    scaling factors, extreme ranges, timezone-free values, and daylight-saving
    transitions. Assess replacement of Axis date/time/duration internals and their
    legacy precision/equality behavior. Completion: explicit contracts and tests
    before changing public representations or comparison behavior.
 
-6. **Repeatable validation and release readiness.** Add CI coverage for the supported
+5. **Repeatable validation and release readiness.** Add CI coverage for the supported
    JDKs, timezone variants, and the core/static-analysis profiles; retain test reports.
    Promote the reconciled dependency fixes from `protege-6` to the appropriate
    default/release branches and verify GitHub refreshes the parent dependency alerts.
-   Record the sibling repository
-   revisions used for releases, dependency versions, and release notes. Completion:
-   a clean-checkout build, reproducible dependency resolution, and an explicit plugin
-   compatibility statement.
+   Integrate the tested local Protégé alpha host fixes (Guava/Jackson runtime bundle
+   and JDK 17 appearance menu) upstream or into an identified host release before
+   advertising public plugin compatibility. Record the sibling and host revisions,
+   dependency versions, and release notes; render the Protégé 6 update template only
+   for an uploaded, verified release artifact. Completion: release builds on the
+   agreed branches and an explicit compatibility statement for the released host.
 
-7. **Checker Framework nullness coverage.** Replace the disabled Checker Framework
+6. **Checker Framework nullness coverage.** Replace the disabled Checker Framework
    1.9.13 / JDK 8 setup with a supported checker on the supported build JDKs.
    Audit annotations and nullness contracts across public SWRLAPI APIs and their
    implementations, including OWLAPI/Drools boundaries, Optional values, collections,
@@ -73,7 +60,7 @@ and operating instructions in [runbook.md](runbook.md).
    production sources, and regression checks for null-contract defects. Keep this
    distinct from SpotBugs and preserve public API compatibility.
 
-8. **README and GitHub documentation updates.** Update the sibling repository
+7. **README and GitHub documentation updates.** Update the sibling repository
    READMEs and GitHub documentation/wiki for the OWLAPI 5 and Protégé 6 baseline,
    supported build and test commands, and third-party built-in registration.
    Document the extension-point namespace, factory implementation and lifecycle,

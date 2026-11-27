@@ -23,7 +23,8 @@ with zipfile.ZipFile(a.bundle) as z, tempfile.TemporaryDirectory(prefix='swrl-re
         artifact=r.findtext('m:artifactId',namespaces=ns)
         assert artifact not in found, f'Duplicate POM: {artifact}'
         found[artifact]=name
-        assert r.findtext('m:version',namespaces=ns)==a.version, name
+        version = r.findtext('m:version',namespaces=ns) or r.findtext('m:parent/m:version',namespaces=ns)
+        assert version==a.version, name
         assert r.findtext('m:scm/m:tag',namespaces=ns)=='release-'+a.version, name
         for elem in r.findall('.//m:version',ns):
             assert not (elem.text or '').endswith('-SNAPSHOT'), name+' contains snapshot version'
@@ -34,7 +35,9 @@ with zipfile.ZipFile(a.bundle) as z, tempfile.TemporaryDirectory(prefix='swrl-re
         if artifact!='swrlapi-parent':
             for suffix in ['.jar','-sources.jar','-javadoc.jar']:
                 assert prefix+suffix in names, f'Missing {prefix+suffix}'
-    payloads=[n for n in names if n.endswith(('.pom','.jar'))]
+        if artifact=='swrltab':
+            assert prefix+'-application.zip' in names, 'Missing standalone application distribution'
+    payloads=[n for n in names if n.endswith(('.pom','.jar','.zip'))]
     for i,name in enumerate(sorted(payloads)):
         assert name+'.asc' in names, f'Missing signature for {name}'
         payload=z.read(name)
