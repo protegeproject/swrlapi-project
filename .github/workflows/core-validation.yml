@@ -1,0 +1,94 @@
+name: Core validation
+on:
+  push:
+    branches: [protege-6]
+  pull_request:
+    branches: [protege-6]
+  workflow_dispatch:
+  workflow_call:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        timezone: [UTC, America/Los_Angeles]
+    env:
+      TEST_TIMEZONE: ${{ matrix.timezone }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          repository: protegeproject/swrlapi-project
+          ref: protege-6
+          path: swrlapi-project
+          persist-credentials: false
+      - uses: actions/checkout@v7
+        with:
+          repository: protegeproject/swrlapi-parent
+          ref: protege-6
+          path: swrlapi-parent
+          persist-credentials: false
+      - uses: actions/checkout@v7
+        with:
+          repository: protegeproject/swrlapi
+          ref: protege-6
+          path: swrlapi
+          persist-credentials: false
+      - uses: actions/checkout@v7
+        with:
+          repository: protegeproject/swrlapi-drools-engine
+          ref: protege-6
+          path: swrlapi-drools-engine
+          persist-credentials: false
+      - uses: actions/checkout@v7
+        with:
+          repository: protegeproject/swrlapi-example
+          ref: protege-6
+          path: swrlapi-example
+          persist-credentials: false
+      - uses: actions/checkout@v7
+        with:
+          repository: protegeproject/swrlapi-integration-tests
+          ref: protege-6
+          path: swrlapi-integration-tests
+          persist-credentials: false
+      - name: Check out the triggering revision
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ github.repository }}
+          ref: ${{ github.sha }}
+          path: ${{ github.event.repository.name }}
+          persist-credentials: false
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+          cache-dependency-path: '**/pom.xml'
+      - name: Record sibling revisions
+        run: |
+          for repo in swrlapi-project swrlapi-parent swrlapi swrlapi-drools-engine swrlapi-example swrlapi-integration-tests; do
+            printf '%s ' "$repo" >> revisions.txt
+            git -C "$repo" log -1 --format='%H %s' >> revisions.txt
+          done
+      - name: Strict nullness, tests, and SpotBugs
+        run: >-
+          mvn -B -f swrlapi-project/pom.xml -Pcore,nullness,static-analysis
+          -Duser.timezone="$TEST_TIMEZONE" clean verify > core-validation.log 2>&1
+      - name: Verify checker enforcement and dependency stubs
+        run: python3 swrlapi-project/ops/experiments/check-nullness-profile.py
+      - name: Retain validation evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: core-validation-${{ strategy.job-index }}
+          retention-days: 14
+          path: |
+            core-validation.log
+            revisions.txt
+            **/target/surefire-reports/*
+            **/target/failsafe-reports/*
+            **/target/spotbugsXml.xml
