@@ -2,15 +2,17 @@
 
 Release the five public artifacts together: parent, API, Drools engine, Protégé plugin, and standalone SWRLTab. The ordinary project reactor selects modules through the `full` or `core` profiles. The `core` profile excludes SWRLTab and the Protégé plugin; the optional built-in-library example is not checked out in this workspace. This release reactor excludes the auxiliary projects from publication.
 
-The `protege-6` compatibility branch passed the full library, plugin, standalone,
-and graphical gates on JDK 17 with an experimental modified host; see the
-[runbook](../ops/runbook.md). Those Protégé changes have been withdrawn and the host
-checkout restored. Revalidate the final plugin against the unmodified supported
-host before advertising public release compatibility. Protégé is an external
-repository; a SWRLAPI release does not authorize modifying or publishing its host.
-Passing local validation does not publish or authorize a release. The instructions below describe
-the existing coordinated `development`/`master` release policy; choose the release
-branch policy explicitly before promoting the compatibility branch.
+The `protege-6` compatibility branch passes the full library, plugin, standalone,
+and graphical gates on JDK 17 with the unmodified Protégé 6 alpha-1 host; see the
+[runbook](../ops/runbook.md) for the exact artifacts and tested boundaries. Keep
+that host baseline for release validation. Protégé is an external repository; a
+SWRLAPI release does not authorize host dependency upgrades or publishing its code.
+The unused local `protege-6-swrlapi` branch has been removed; recreate it only if a
+host change becomes necessary, and do not push without explicit authorization.
+Passing local validation does not publish or authorize a release.
+The instructions below describe the existing coordinated `development`/`master`
+release policy; choose the release branch policy explicitly before promoting the
+compatibility branch.
 
 For metadata-only tests, run `python3 -m unittest discover -s release -p 'test_*.py'`.
 `set-version.py` supports inherited child versions and `--branch protege-6` for

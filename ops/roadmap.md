@@ -43,12 +43,12 @@ and operating instructions in [runbook.md](runbook.md).
    JDKs, timezone variants, and the core/static-analysis profiles; retain test reports.
    Promote the reconciled dependency fixes from `protege-6` to the appropriate
    default/release branches and verify GitHub refreshes the parent dependency alerts.
-   Revalidate the final plugin against the unmodified supported Protégé host after
-   withdrawal of the experimental host changes. Document host dependency and JDK 17
-   appearance-menu limitations; host maintenance belongs to the Protégé maintainers.
-   Record the sibling and host revisions,
-   dependency versions, and release notes; render the Protégé 6 update template only
-   for an uploaded, verified release artifact. Completion: release builds on the
+   Keep the unmodified Protégé host baseline in release validation and document
+   host-specific compatibility limits. Propose host changes only for demonstrated
+   blockers and with explicit authorization; maintenance belongs to its maintainers.
+   Record the sibling and host revisions, dependency versions, and release notes;
+   render the Protégé 6 update template only for an uploaded, verified release
+   artifact. Completion: release builds on the
    agreed branches and an explicit compatibility statement for the released host.
 
 6. **Checker Framework nullness coverage.** Replace the disabled Checker Framework
@@ -68,3 +68,16 @@ and operating instructions in [runbook.md](runbook.md).
    OSGi imports and shared API identity, collision/error behavior, and a working
    contributor example. Completion: consistent links and instructions across the
    repositories, with the registration example built and exercised in Protégé.
+
+8. **Notifications to Protégé developers.** Collect host issues and compatibility
+   requests worth communicating, with reproduction steps, affected versions,
+   observed impact, and the smallest proposed correction. Current unsent notification:
+   on macOS with JDK 17, unmodified `6.0.0-alpha-1` logs an `IllegalAccessException`
+   when `Workspace` reflectively constructs `com.apple.laf.AquaLookAndFeel` to name
+   an appearance-menu entry; that entry is omitted, while the tested SWRLTab rule,
+   query, editing, and lifecycle workflows pass. Prepare a focused report with the
+   host revision and log excerpt from the runbook; consider Swing's registered
+   look-and-feel metadata for name lookup without proposing dependency upgrades.
+   Record additional communication candidates here as they arise. Send notifications
+   or open upstream issues only when explicitly authorized. Completion: agreed
+   notifications delivered and their issue links or responses recorded in the runbook.

@@ -131,6 +131,15 @@ Explicit user instructions and agreed scope take precedence over these defaults.
   commit-and-push requests cover the SWRLAPI repositories only. Do not push commits,
   branches, or tags, or open pull requests in `protegeproject/protege` without an
   explicit instruction naming that repository and the intended action.
+- Use the unmodified Protégé checkout on `protege6/release-6.0.0-alpha-1`.
+  Recreate the local branch `protege-6-swrlapi` only if a concrete host change is
+  needed; do not push it until explicitly authorized.
+  First validate SWRLTab against the unchanged host and prefer plugin-side fixes.
+  Minimize host changes; Guava, Jackson, and other shared dependency upgrades can
+  affect unrelated Protégé functionality and are not part of routine plugin fixes.
+  Demonstrate any necessary host change with a focused failure and explain the
+  smallest proposed correction before applying it; coordinate broader upgrades
+  separately with the user and host maintainers.
 - Commit and push only when asked. Stage specific reviewed paths; never blanket
   `git add -A` across an unread working tree. Inspect each repository's actual branch
   and release policy instead of importing CEDAR's `develop` or documentation `main`

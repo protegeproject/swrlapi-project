@@ -2,12 +2,11 @@
 
 The shared [development rules](../AGENTS.md) apply to every sibling repository.
 This runbook covers the compatibility-first OWLAPI 5 port and its Drools engine.
-The ordered backlog lives in [roadmap.md](roadmap.md). The library and standalone
-application passed the local migration gates below. The latest graphical plugin
-evidence used an experimental modified host that has since been withdrawn; the
-final plugin needs validation against the restored, unmodified host. The internal
-OWLAPI streams migration preserves the public SWRLAPI API. These are development
-builds; public release is separate.
+The ordered backlog lives in [roadmap.md](roadmap.md). The library, standalone
+application, and plugin pass the migration gates below, including graphical
+workflows on unmodified Protégé 6 alpha-1. No host source or dependency upgrade is
+required for those workflows. The internal OWLAPI streams migration preserves the
+public SWRLAPI API. These are development builds; public release is separate.
 
 ## Checkout layout and versions
 
@@ -193,18 +192,12 @@ retain the historical JVM-default-timezone interpretation.
 
 ## Last validation
 
-The host modifications used in this validation were withdrawn on 2026-11-26.
-The remote experimental branch was deleted and the local host restored to
-`7c6d34f921cd33affa7aa075e1e28b10236d3648`. The following reports record the tested
-experimental inputs, not the restored host. Temporary evidence directories retain
-those old inputs; do not use their distributions as current host artifacts.
-
 Verified **2026-11-26**, JDK 17 and Maven 3.9.14: **BUILD SUCCESS** for the combined
-host and `-Pfull,static-analysis clean verify` reactor. Fresh sibling clones were
-overlaid with the current source changes and built without copied `target`
-directories or installed copies of the modified host. The host's reactor outputs
-were consumed directly by the plugin. This validates clean-source packaging;
-the source changes were uncommitted, so this is not a tagged release build.
+unmodified Protégé host and `-Pfull,static-analysis clean verify` reactor. The host
+is exactly `7c6d34f921cd33affa7aa075e1e28b10236d3648`, with no source changes.
+The checkout is on `protege6/release-6.0.0-alpha-1`; the unused local experiment
+branch was removed after validation. The reactor consumes current
+host and SWRLAPI sources directly, without installing or publishing host artifacts.
 
 | Suite | Tests | Failures | Errors | Skipped |
 | --- | ---: | ---: | ---: | ---: |
@@ -214,42 +207,49 @@ the source changes were uncommitted, so this is not a tagged release build.
 | Standalone packaged-application integration test | 1 | 0 | 0 | 0 |
 | Public API/query integration tests | 681 | 0 | 0 | 0 |
 | SWRLAPI total | 990 | 0 | 0 | 0 |
-| Protégé host tests | 558 | 0 | 0 | 3 |
+| Protégé host tests | 556 | 0 | 0 | 0 |
 
-The host's three existing skips are native file-chooser cases in
-`MacUIUtil_TestCase`, excluded when headless; 555 host tests passed. The host suite
-also accesses public ontology/prefix services, unlike the offline SWRLAPI core
+All host tests passed, including its three native file-chooser cases. The host
+suite accesses public ontology/prefix services, unlike the offline SWRLAPI core
 gate. SpotBugs reports zero findings, analyzer errors, or missing classes across
 all five analyzed SWRLAPI production modules. No formatter gate is configured;
 nullness type checking remains separate roadmap work.
 
-The query-view regression first failed with expected `7`, actual `5`, then passed
-after replacing the result object in the existing result panel. It also checks
+The packaged OSGi and graphical checks use the exact plugin from this build:
+SHA-256 `412b743076f97118f6c810b518a0b4015787583b5e857f3097088aa8ea2c92f1`.
+Its embedded library and engine jars match the current reactor producers
+byte-for-byte. The actual host Guava 18.0 and OWLAPI 5.5.1 bundle jars match their
+original Maven artifacts byte-for-byte; the OWLAPI jar embeds Jackson 2.16.1.
+No upgraded wrapper or dependency jar is substituted into the host distribution.
+The inventory check rejects duplicate bundle identities and unexpected upgrades;
+negative controls exercised both failures against copies of the real distribution.
+
+The query-view regression originally failed with expected `7`, actual `5`, then
+passed after replacing the result object in the existing result panel. It checks
 column-count changes, empty results, result-tab recreation, and exactly one Run
-button. Plugin lifecycle regressions use a positive listener control before
-release and prove that released models no longer receive ontology changes.
-The graphical fixture separately checks dialog reuse, rule editing, query edits,
-ontology switching, initialization failure recovery, and tab close/reopen.
+button. Listener tests include positive controls before disposal. The actual
+Protégé process additionally exercises rule/query editing, contributed query `42`,
+ontology switching, failure recovery, tab close/reopen, and editor cleanup.
+The test-only editor cleanup was compiled and the graphical matrix rerun after
+the full gate; the packaged production plugin is unchanged.
 
 Local evidence:
 
-- Combined clean-source build: `/tmp/swrlapi-fresh-host-reactor.log`.
-- Source/build workspace: `/var/folders/c1/gtt0h33d00z7yg3w_fkfyhl40000gr/T/swrlapi-fresh-sources-q119wq4v`.
-- Query-view failure/pass: `/tmp/swrlapi-query-view-before.log` and
+- Combined clean build: `/tmp/swrlapi-unmodified-protege-full.log`.
+- Packaged OSGi check: `/tmp/swrlapi-unmodified-osgi.log`.
+- Graphical matrix: `/tmp/swrlapi-unmodified-graphical-final.log`; application evidence
+  is `/var/folders/c1/gtt0h33d00z7yg3w_fkfyhl40000gr/T/swrlapi-graphical-kky28yw6`.
+- Test fixture compilation: `/tmp/swrlapi-unmodified-fixture-compile.log`.
+- Earlier query-view failure/pass: `/tmp/swrlapi-query-view-before.log` and
   `/tmp/swrlapi-query-view-after.log`.
-- Final packaged OSGi check: `/tmp/swrlapi-final-osgi.log`.
-- Final graphical matrix: `/tmp/swrlapi-final-graphical.log` and
-  `/var/folders/c1/gtt0h33d00z7yg3w_fkfyhl40000gr/T/swrlapi-graphical-i6pz7e8b`.
-- Standalone window startup: `/tmp/swrlapi-standalone-graphical.log`.
 
-The exact fresh-built plugin used by both final OSGi and graphical checks has
-SHA-256 `d015a0b3253ec7c58fd4060e1aa0de63f504cfbe7d9484534fbdb37466600b9b`.
-Its embedded core and engine jars match the same build's producers byte-for-byte.
-A final comparison confirmed 2,416 current source/build input files match the fresh
-workspace. Public signatures and JVM descriptors of the three modified library
-classes match their pre-migration counterparts (`javap -public -s`).
-These paths are temporary local evidence; retain the module reports for CI or
-release review. Passing cases do not establish complete OWL RL/DL conformance.
+The original host's JDK 17 Aqua appearance-menu access error is still logged; it
+does not prevent the tested plugin workflows. That host limitation has not been
+patched or hidden. Two additional initialization errors are intentional negative
+controls in the contributor fixture. Historical modified-host reports under
+`/tmp/swrlapi-fresh-host-reactor.log` and their temporary source/distribution copies
+are superseded by the unmodified-host evidence above. Passing cases do not
+establish complete OWL RL/DL conformance or a security audit of the entire host.
 
 ## Dependency security baseline
 
@@ -271,11 +271,12 @@ core/databind and XStream. After the updates, **91 distinct resolved Maven
 coordinates/versions** returned **zero OSV matches**. This is a dated advisory
 lookup of declared core dependencies, not a complete binary or plugin security
 assessment. Upstream OWLAPI 5.5.1's OSGi jar embeds Jackson 2.16.1; Maven overrides
-affect the plain core classpath, not those nested jars. The restored Protégé alpha
-host retains its original Guava and embedded Jackson dependencies. The experimental
-host wrapper that upgraded them was withdrawn; its successful binary checks do not
-establish an upgraded current host. Protégé dependency-alert triage belongs to its
-maintainers and is outside this SWRLAPI backlog.
+affect the plain core classpath, not those nested jars. The unmodified Protégé alpha
+host retains Guava 18.0, its Jackson 2.9.8 POM baseline, and OWLAPI's nested Jackson
+2.16.1. These original versions are validated for plugin compatibility here;
+functional success is not a security audit. The broader host-upgrade experiment
+was withdrawn. Protégé dependency-alert triage belongs to its maintainers and is
+outside this SWRLAPI backlog.
 POI is not a dependency of this project and is outside this work.
 
 Eight added integration tests cover:
@@ -305,12 +306,15 @@ verification evidence, not release artifacts. Version rationale:
 
 ## Protégé 6 plugin experiment
 
-The host checkout is `/Users/martin/workspace/protege/protege`, restored to
-`protege6/release-6.0.0-alpha-1` at
-`7c6d34f921cd33affa7aa075e1e28b10236d3648`. The experimental branch
-`swrlapi-protege6-migration` was deleted locally and remotely. Protégé is an external
-test dependency: general SWRLAPI commit-and-push requests do not authorize writes
-to `protegeproject/protege`. Build the unmodified host and
+The host checkout is `/Users/martin/workspace/protege/protege`, on
+`protege6/release-6.0.0-alpha-1` at `7c6d34f921cd33affa7aa075e1e28b10236d3648`,
+with no source changes. The unused local `protege-6-swrlapi` branch was deleted;
+recreate it only for a demonstrated need and never push it without explicit
+authorization.
+Protégé is an external test dependency: prefer plugin-side fixes, retain its
+original dependencies, and demonstrate any necessary host change before applying
+it. Shared Guava/Jackson upgrades may affect unrelated host functionality and need
+a separate decision. Build the unmodified host and
 all SWRLAPI siblings in one reactor from the SWRLAPI workspace:
 
 ```sh
@@ -337,12 +341,18 @@ This runs producer unit tests and packages the plugin; it does not replace the
 full `verify` gate. The plugin is
 `swrltab-plugin/target/swrltab-plugin-2.1.5-SNAPSHOT.jar`.
 
-The withdrawn host experiment added a `protege-owlapi` OSGi wrapper with managed
-Guava/Jackson dependencies, adjusted the launcher and distributions, excluded
-inlined JPMS descriptors, and corrected the JDK 17 Aqua appearance-menu lookup.
-Those changes are no longer in the host checkout. The host retains the original
-alpha dependency versions and appearance-menu behavior; the SWRLAPI plugin's own
-packaging and lifecycle fixes remain in its separate repository.
+No host change is needed for the verified SWRLTab workflows. The original
+platform-independent launcher logs an Aqua appearance-menu `IllegalAccessException`
+on JDK 17 because `Workspace` reflectively constructs Apple's unexported look-and-
+feel implementation. The host catches the exception and omits that menu entry.
+The plugin's query, inference, editing, and lifecycle checks pass despite this
+separate host UI limitation. This is an unsent notification queued under
+**Notifications to Protégé developers** in [the roadmap](roadmap.md). Reproduce
+with the original platform-independent launcher on macOS/JDK 17; the relevant
+`Workspace.addLookAndFeelMenuItem` stack trace is in the final graphical run's
+`user/.Protege/logs/protege.log` (evidence directory under **Last validation**).
+No issue or message has been sent. Do not broaden the plugin port into host
+dependency maintenance.
 
 Clean the host when changing assembly dependency sets. An old OWLAPI jar left in
 `target` previously hid a wrapper-resolution error by supplying a second bundle
@@ -457,19 +467,20 @@ service and Equinox registry; the complete graphical host remains a separate gat
 
 ### Packaged and graphical validation
 
-Run the packaged semantic checks after building the restored host. The historical
-`verify-host-bundles.py` inventory script expects the withdrawn wrapper and upgraded
-dependencies, so it is not a gate for the original alpha distribution:
+Run the assembled-host inventory and packaged semantic checks after building.
+The inventory script verifies the original alpha-1 baseline, including nested jar
+versions; it is a compatibility check, not a statement about dependency security:
 
 ```sh
 protege_dist=/Users/martin/workspace/protege/protege/protege-desktop/target/protege-6.0.0-alpha-1-platform-independent/Protege-6.0.0-alpha-1
+python3 swrlapi-project/ops/experiments/verify-host-bundles.py "$protege_dist"
 java -cp "$HOME/.m2/repository/org/apache/felix/org.apache.felix.main/7.0.5/org.apache.felix.main-7.0.5.jar" \
   swrlapi-project/ops/experiments/PluginSmoke.java \
   "$protege_dist" swrltab-plugin/target/swrltab-plugin-2.1.5-SNAPSHOT.jar \
   /tmp/swrlapi-plugin-smoke.ttl /tmp/swrlapi-contributor-fixture.jar
 ```
 
-The recorded experimental-host contributor check passed: the plugin becomes ACTIVE, both tab
+The unmodified-host contributor check passes: the plugin becomes ACTIVE, both tab
 classes load, rule/variable rendering is correct, arithmetic returns exactly `5`,
 the contributed query returns exactly `42` with an empty negative control, and
 rules independently infer `Adult(alice)` and `ContributedAdult(alice)`. The harness
@@ -492,12 +503,15 @@ The runner copies the distribution and inputs to a temporary directory, launches
 its supported `run.sh` with a test home and the opt-in `swrlapi.guiSmoke` property,
 prints artifact hashes, and checks a bounded result file. It closes its process
 on completion; `--keep-open` retains a successful test application for inspection.
+On an ordinary run, the fixture removes and disposes its editor while the OSGi
+registry is still active, asserting that all contributed factories are released.
+This avoids window-activation callbacks after the launcher stops the registry.
 The fixture runs on Swing's event thread inside the actual Protégé process. It
 selects tables and presses existing buttons, edits through the real modal editor,
 and reads the displayed result model. It is not a native mouse-routing or
 screenshot test; native screenshot attachment failed to identify the Java window.
 
-The recorded experimental-host graphical matrix passed:
+The unmodified-host graphical matrix passes:
 
 - Contributed query displays one result, `42`; arithmetic displays `5`, then `7`
   and `9` after two edits through the same editor dialog.
@@ -511,6 +525,8 @@ The recorded experimental-host graphical matrix passed:
   entries are fixture failures, not an ordinary-launch defect.
 - Closing both tabs prevents listener/factory recreation; reopening creates exactly
   two live factories and the contributed query displays `42` again.
+- Closing the editor releases the final contributed factories before OSGi shutdown;
+  the final run has no window-event error after framework disposal.
 
 Manual verification uses the same generated ontology: enable **Window → Tabs →
 SWRLTab** and **SQWRLTab**; run **OWL+SWRL→Drools**, **Run Drools**, and

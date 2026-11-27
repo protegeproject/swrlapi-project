@@ -28,7 +28,8 @@ shutil.copy2(args.ontology, root / 'smoke.owl')
 result = root / 'result.txt'
 (app / 'conf/jvm.conf').write_text(
     f'max_heap_size=2G\njava_home={args.java_home}\n'
-    f'append=-Duser.home={root / "user"} -Dswrlapi.guiSmoke={result}\n')
+    f'append=-Duser.home={root / "user"} -Dswrlapi.guiSmoke={result} '
+    f'-Dswrlapi.guiSmoke.closeEditor={str(not args.keep_open).lower()}\n')
 print('Evidence directory:', root, flush=True)
 with (root / 'launch.log').open('w') as log:
     process = subprocess.Popen(['./run.sh', str(root / 'smoke.owl')], cwd=app,

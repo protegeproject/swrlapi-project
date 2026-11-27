@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check the assembled host, including the OWLAPI bundle's embedded libraries."""
+"""Verify the unmodified Protégé alpha-1 dependency baseline, not security status."""
 import argparse
 import io
 from pathlib import Path
@@ -23,13 +23,13 @@ def verify(distribution):
                 raise AssertionError(f'Duplicate bundle {name}: {bundles[name][0]} and {path}')
             bundles[name] = (path, values)
     assert len(bundles) >= 10, 'Incomplete distribution'
-    assert bundles['com.google.guava'][1]['Bundle-Version'] == '33.8.0.jre'
-    assert 'com.google.guava.failureaccess' in bundles
+    assert bundles['com.google.guava'][1]['Bundle-Version'] == '18.0.0', 'Unexpected host Guava version'
+    assert 'com.google.guava.failureaccess' not in bundles, 'Unexpected newer Guava dependency'
     owl_path, owl_manifest = bundles['org.semanticweb.owl.owlapi']
-    assert owl_manifest['Bundle-Version'] == '5.5.1.protege6alpha1'
-    expected = {'lib/jackson-annotations-2.21.jar': '2.21',
-                'lib/jackson-core-2.21.9.jar': '2.21.9',
-                'lib/jackson-databind-2.21.9.jar': '2.21.9'}
+    assert owl_manifest['Bundle-Version'] == '5.5.1', 'Unexpected host OWLAPI version'
+    expected = {'lib/jackson-annotations-2.16.1.jar': '2.16.1',
+                'lib/jackson-core-2.16.1.jar': '2.16.1',
+                'lib/jackson-databind-2.16.1.jar': '2.16.1'}
     with zipfile.ZipFile(owl_path) as jar:
         actual = {name for name in jar.namelist() if name.startswith('lib/jackson-') and name.endswith('.jar')}
         assert actual == set(expected), actual
@@ -39,8 +39,10 @@ def verify(distribution):
                 assert manifest(nested)['Implementation-Version'] == version, name
         assert not any('httpclient-osgi' in name or 'httpcore-osgi' in name for name in jar.namelist())
     with zipfile.ZipFile(bundles['org.protege.editor.owl'][0]) as jar:
-        assert not any(name.endswith('module-info.class') for name in jar.namelist()), 'Embedded JPMS descriptor leaked'
-    print('PASS: unique host bundles; Guava 33.8.0; embedded Jackson 2.21.9 / annotations 2.21; no JPMS descriptor leak')
+        # Alpha-1 includes a versioned descriptor but does not enable multi-release loading.
+        assert 'module-info.class' not in jar.namelist(), 'Unexpected root JPMS descriptor'
+        assert manifest(jar).get('Multi-Release', '').lower() != 'true', 'Unexpected multi-release host bundle'
+    print('PASS: original alpha-1 baseline; unique host bundles; Guava 18.0; OWLAPI 5.5.1; embedded Jackson 2.16.1')
 
 
 if __name__ == '__main__':
