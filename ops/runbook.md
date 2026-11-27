@@ -2,10 +2,12 @@
 
 The shared [development rules](../AGENTS.md) apply to every sibling repository.
 This runbook covers the compatibility-first OWLAPI 5 port and its Drools engine.
-The ordered backlog lives in [roadmap.md](roadmap.md). The Protégé 6 plugin and
-standalone application pass the local migration gates described below. The
-internal OWLAPI streams migration preserves the public SWRLAPI API. These are
-development builds; public release and host upstream integration are separate.
+The ordered backlog lives in [roadmap.md](roadmap.md). The library and standalone
+application passed the local migration gates below. The latest graphical plugin
+evidence used an experimental modified host that has since been withdrawn; the
+final plugin needs validation against the restored, unmodified host. The internal
+OWLAPI streams migration preserves the public SWRLAPI API. These are development
+builds; public release is separate.
 
 ## Checkout layout and versions
 
@@ -191,6 +193,12 @@ retain the historical JVM-default-timezone interpretation.
 
 ## Last validation
 
+The host modifications used in this validation were withdrawn on 2026-11-26.
+The remote experimental branch was deleted and the local host restored to
+`7c6d34f921cd33affa7aa075e1e28b10236d3648`. The following reports record the tested
+experimental inputs, not the restored host. Temporary evidence directories retain
+those old inputs; do not use their distributions as current host artifacts.
+
 Verified **2026-11-26**, JDK 17 and Maven 3.9.14: **BUILD SUCCESS** for the combined
 host and `-Pfull,static-analysis clean verify` reactor. Fresh sibling clones were
 overlaid with the current source changes and built without copied `target`
@@ -263,15 +271,11 @@ core/databind and XStream. After the updates, **91 distinct resolved Maven
 coordinates/versions** returned **zero OSV matches**. This is a dated advisory
 lookup of declared core dependencies, not a complete binary or plugin security
 assessment. Upstream OWLAPI 5.5.1's OSGi jar embeds Jackson 2.16.1; Maven overrides
-affect the plain core classpath, not those nested jars. The modified local host now
-builds its own OWLAPI runtime bundle from the plain distribution, embedding managed
-Jackson 2.21.9 / annotations 2.21. The assembled host verifier checks those actual
-nested bytes and Guava 33.8.0-jre. This does not constitute an advisory audit of
-every dependency in the Protégé distribution.
-The GitHub push response on 2026-11-26 reported 12 dependency alerts on Protégé's
-default branch (two high, five moderate, five low). Those alerts were not individually
-triaged by this migration; the count concerns the default branch and does not
-establish which findings remain in the tested review-branch distribution.
+affect the plain core classpath, not those nested jars. The restored Protégé alpha
+host retains its original Guava and embedded Jackson dependencies. The experimental
+host wrapper that upgraded them was withdrawn; its successful binary checks do not
+establish an upgraded current host. Protégé dependency-alert triage belongs to its
+maintainers and is outside this SWRLAPI backlog.
 POI is not a dependency of this project and is outside this work.
 
 Eight added integration tests cover:
@@ -301,11 +305,12 @@ verification evidence, not release artifacts. Version rationale:
 
 ## Protégé 6 plugin experiment
 
-The host checkout is `/Users/martin/workspace/protege/protege`, review branch
-`swrlapi-protege6-migration`, based on `protege6/release-6.0.0-alpha-1` at
-`7c6d34f921cd33affa7aa075e1e28b10236d3648`. The migration changes are kept on this
-review branch for upstream integration; the baseline is the alpha release branch,
-not the moving `protege-6` branch. Build current host sources and
+The host checkout is `/Users/martin/workspace/protege/protege`, restored to
+`protege6/release-6.0.0-alpha-1` at
+`7c6d34f921cd33affa7aa075e1e28b10236d3648`. The experimental branch
+`swrlapi-protege6-migration` was deleted locally and remotely. Protégé is an external
+test dependency: general SWRLAPI commit-and-push requests do not authorize writes
+to `protegeproject/protege`. Build the unmodified host and
 all SWRLAPI siblings in one reactor from the SWRLAPI workspace:
 
 ```sh
@@ -332,20 +337,12 @@ This runs producer unit tests and packages the plugin; it does not replace the
 full `verify` gate. The plugin is
 `swrltab-plugin/target/swrltab-plugin-2.1.5-SNAPSHOT.jar`.
 
-The host parent now manages Guava 33.8.0-jre and the Jackson 2.21.9 BOM. Its new
-`protege-owlapi` module wraps the ordinary OWLAPI 5.5.1 distribution in an OSGi
-bundle (`org.semanticweb.owl.owlapi`, version `5.5.1.protege6alpha1`) with managed
-nested dependencies. Published OWLAPI jars are untouched. Assembly descriptors
-include this wrapper and Guava's `failureaccess`; unused HTTP OSGi adapters are
-excluded to avoid their additional service requirements. Inlined dependencies'
-`module-info.class` files are excluded from host/plugin bundles so a dependency's
-JPMS descriptor cannot misidentify the assembled host on the test classpath.
-
-`Workspace` obtains appearance-menu labels from Swing's registered look-and-feel
-metadata instead of reflectively constructing Apple's unexported Aqua class.
-Two host tests verify name lookup without loading implementation classes. The
-JDK 17 platform-independent graphical launch passes without the former Aqua
-access error.
+The withdrawn host experiment added a `protege-owlapi` OSGi wrapper with managed
+Guava/Jackson dependencies, adjusted the launcher and distributions, excluded
+inlined JPMS descriptors, and corrected the JDK 17 Aqua appearance-menu lookup.
+Those changes are no longer in the host checkout. The host retains the original
+alpha dependency versions and appearance-menu behavior; the SWRLAPI plugin's own
+packaging and lifecycle fixes remain in its separate repository.
 
 Clean the host when changing assembly dependency sets. An old OWLAPI jar left in
 `target` previously hid a wrapper-resolution error by supplying a second bundle
@@ -460,18 +457,19 @@ service and Equinox registry; the complete graphical host remains a separate gat
 
 ### Packaged and graphical validation
 
-Run the assembled-host inventory and packaged semantic checks after building:
+Run the packaged semantic checks after building the restored host. The historical
+`verify-host-bundles.py` inventory script expects the withdrawn wrapper and upgraded
+dependencies, so it is not a gate for the original alpha distribution:
 
 ```sh
 protege_dist=/Users/martin/workspace/protege/protege/protege-desktop/target/protege-6.0.0-alpha-1-platform-independent/Protege-6.0.0-alpha-1
-python3 swrlapi-project/ops/experiments/verify-host-bundles.py "$protege_dist"
 java -cp "$HOME/.m2/repository/org/apache/felix/org.apache.felix.main/7.0.5/org.apache.felix.main-7.0.5.jar" \
   swrlapi-project/ops/experiments/PluginSmoke.java \
   "$protege_dist" swrltab-plugin/target/swrltab-plugin-2.1.5-SNAPSHOT.jar \
   /tmp/swrlapi-plugin-smoke.ttl /tmp/swrlapi-contributor-fixture.jar
 ```
 
-The final ordinary contributor check passes: the plugin becomes ACTIVE, both tab
+The recorded experimental-host contributor check passed: the plugin becomes ACTIVE, both tab
 classes load, rule/variable rendering is correct, arithmetic returns exactly `5`,
 the contributed query returns exactly `42` with an empty negative control, and
 rules independently infer `Adult(alice)` and `ContributedAdult(alice)`. The harness
@@ -499,7 +497,7 @@ selects tables and presses existing buttons, edits through the real modal editor
 and reads the displayed result model. It is not a native mouse-routing or
 screenshot test; native screenshot attachment failed to identify the Java window.
 
-The final graphical matrix passes:
+The recorded experimental-host graphical matrix passed:
 
 - Contributed query displays one result, `42`; arithmetic displays `5`, then `7`
   and `9` after two edits through the same editor dialog.
@@ -565,8 +563,8 @@ without writes. Four bundle-verifier tests check inherited versions, mandatory
 standalone zip inclusion, and archive checksum validation; only the external GPG
 call is mocked in those tests. Real release verification still invokes GPG for
 every payload. See [release guidance](../release/README.md) for the separate
-publishing procedure. The modified host must be integrated and identified by a
-release before advertising the plugin's compatibility with a public distribution.
+publishing procedure. Validate the final plugin against an identified, unmodified
+host release before advertising compatibility with a public distribution.
 
 ## Protégé Plugin Development References
 

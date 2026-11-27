@@ -127,6 +127,10 @@ Explicit user instructions and agreed scope take precedence over these defaults.
 - These are separate Git repositories, and other sessions may be editing them.
   Inspect each relevant working tree before changing or staging it. Preserve
   unrelated work. Do not reset, clean, discard, or stash it as a routine prerequisite.
+- Protégé is an external test dependency, not a user-owned repository. General
+  commit-and-push requests cover the SWRLAPI repositories only. Do not push commits,
+  branches, or tags, or open pull requests in `protegeproject/protege` without an
+  explicit instruction naming that repository and the intended action.
 - Commit and push only when asked. Stage specific reviewed paths; never blanket
   `git add -A` across an unread working tree. Inspect each repository's actual branch
   and release policy instead of importing CEDAR's `develop` or documentation `main`
