@@ -3,7 +3,7 @@
 The shared [development rules](../AGENTS.md) apply to every sibling repository.
 This runbook covers the compatibility-first OWLAPI 5 port and its Drools engine.
 The ordered backlog lives in [roadmap.md](roadmap.md). The validation records below
-separate the core datatype changes from the earlier full build and graphical
+separate the bounded core conformance audit and datatype changes from full-build and graphical
 workflows on unmodified Protégé 6 alpha-1. No host source or dependency upgrade was
 required for those workflows. The internal OWLAPI streams migration preserves the
 public SWRLAPI API. These are development builds; public release is separate.
@@ -82,6 +82,12 @@ A focused run supplements the full gate; it does not establish full compatibilit
 For datatype regressions, use the same reactor with
 `-Dtest=LiteralValuesTest,DatatypeRuleTest,DatatypeMembershipTest,OperandTraversalTest,OWL2RLRuleTest`
 and `-Dit.test=DatatypeConformanceIT,OWL2RLRemainingRulesIT,DroolsOWLReasonerIT`.
+
+For the bounded OWL 2 RL audit, use
+`-Dtest=OWL2RLRuleTest,OWL2RLSchemaRuleTest,OWL2RLRuleCoverageTest,DefaultDroolsOWLAxiomHandlerTest,NaryAxiomTraversalTest`
+and `-Dit.test=OWL2RLConformanceIT`, retaining the Surefire option above.
+These selections contain 114 unit/rule cases and 20 integration tests; the full
+core gate also checks their interactions with the existing datatype and query suites.
 
 For timezone regressions, repeat relevant temporal tests with `-Duser.timezone=UTC`
 and `-Duser.timezone=America/Los_Angeles` in separate Maven invocations. Keep the
@@ -182,6 +188,103 @@ reasoner or a claim of complete RL conformance. Unsupported entailment axiom typ
 `UnsupportedEntailmentTypeException`; known empty classes do not establish arbitrary
 class-expression satisfiability.
 
+### OWL 2 RL rule and API support matrix
+
+This is a bounded audit of the **typed OWLAPI implementation**, using the
+[OWL 2 RL rule tables](https://www.w3.org/TR/owl2-profiles/#Reasoning_in_OWL_2_RL_and_RDF_Graphs_using_Rules)
+as the reference. It is not a general RDF triple engine or a certification of
+[complete OWL 2 conformance](https://www.w3.org/TR/owl2-conformance/).
+The public rule enum has 78 names. Of these, 67 have static DRL definitions and
+isolated behavioral cases; 11 refer to generated rules, grouped/conversion paths,
+or vocabulary/value handling. A name being enabled does not establish complete
+implementation of the corresponding RDF rule.
+
+Coverage is guarded by
+[OWL2RLRuleCoverageTest](https://github.com/protegeproject/swrlapi-drools-engine/blob/protege-6/src/test/java/org/swrlapi/drools/owl2rl/OWL2RLRuleCoverageTest.java).
+The principal evidence is:
+
+- [OWL2RLRuleTest](https://github.com/protegeproject/swrlapi-drools-engine/blob/protege-6/src/test/java/org/swrlapi/drools/owl2rl/OWL2RLRuleTest.java): isolated assertion/equality rules, missing-premise and negative controls, and a required fixpoint.
+- [OWL2RLSchemaRuleTest](https://github.com/protegeproject/swrlapi-drools-engine/blob/protege-6/src/test/java/org/swrlapi/drools/owl2rl/OWL2RLSchemaRuleTest.java): all 20 Table 9 rule names, 29 object/data cases, exact conclusion sets and removal of every premise.
+- [OWL2RLConformanceIT](https://github.com/protegeproject/swrlapi-integration-tests/blob/protege-6/src/test/java/org/swrlapi/OWL2RLConformanceIT.java): public entailment, schema direction, alias propagation, imports/retractions, rule selection/export and SQWRL results.
+- [OWL2RLRemainingRulesIT](https://github.com/protegeproject/swrlapi-integration-tests/blob/protege-6/src/test/java/org/swrlapi/OWL2RLRemainingRulesIT.java), [DroolsOWLReasonerIT](https://github.com/protegeproject/swrlapi-integration-tests/blob/protege-6/src/test/java/org/swrlapi/DroolsOWLReasonerIT.java), [NaryAxiomTraversalTest](https://github.com/protegeproject/swrlapi-drools-engine/blob/protege-6/src/test/java/org/swrlapi/drools/converters/oo/NaryAxiomTraversalTest.java), and the datatype tests linked below cover the generated/conversion and lifecycle paths.
+
+The following rows describe tested behavior and its limits. They are not claims
+that every possible ontology or interaction in a rule family has been tested.
+`CLS_SFV1/2` are the existing public enum spellings of the specification's `cls-svf1/2`.
+
+| Rules | Audited behavior / boundary | Evidence |
+| --- | --- | --- |
+| `EQ_REF`, `EQ_SYM`, `EQ_TRANS` | Individual reflexivity, symmetry and transitive closure; no generalized RDF equality over arbitrary subjects/predicates/literals. | Isolated rules; existing `OWL2RLIT` SQWRL cases |
+| `EQ_REP_S`, `EQ_REP_O` | Equality propagates class membership, property assertions and different-individual facts; alias removal retracts derived facts in the reasoner snapshot. | Isolated rules; conformance alias and imported chain/key cases |
+| `EQ_REP_P` | Grouped with property-equivalence rules; individual `sameAs` does not equate punned properties. This is a typed-OWL boundary, not full RDF predicate replacement. | Conformance punning control; property-equivalence rules |
+| `EQ_DIFF1`, `EQ_DIFF2`, `EQ_DIFF3` | Same/different conflicts; n-ary different-individual axioms expand to pairs. | Isolated conflict; converter pair matrix; key/AllDifferent conflict and recovery |
+| `PRP_AP` | Referenced annotation-property declarations can be imported; annotation entailments and all built-in RDF axiomatic triples are not materialized. | Converter inspection; no claim of annotation reasoning |
+| `PRP_DOM`, `PRP_RNG` | Object/data domains, object ranges and data membership obligations in the supported datatype subset. | Isolated rules; reasoner domain/range tests; datatype integration tests |
+| `PRP_FP`, `PRP_IFP` | Object equality from functionality/inverse functionality; data functionality conflicts only for proved distinct values. | Isolated rules; datatype functional-property tests |
+| `PRP_IRP`, `PRP_SYMP`, `PRP_ASYP`, `PRP_TRP` | Irreflexive/asymmetric conflicts, symmetric edges and transitive closure with matching endpoints/properties. | Isolated rules and missing-premise controls |
+| `PRP_SPO1`, `PRP_SPO2` | Object/data subproperties; generated ordered chains, inverse operands/heads, connected edges and repeated inference. | Isolated subproperty rules; remaining-rules and imported chain/key integration tests |
+| `PRP_EQP1`, `PRP_EQP2`, `PRP_INV1`, `PRP_INV2` | Both directions of typed property equivalence and object inversion. | Isolated rules; public property/value and inverse assertion queries |
+| `PRP_PDW`, `PRP_ADP`, `PRP_NPA1`, `PRP_NPA2` | Binary/n-ary property disjointness and negative assertion conflicts; data values use semantic comparison. | Isolated rules; n-ary pair conversion; conformance and datatype integration tests |
+| `PRP_KEY` | Generated keys require every operand, shared values and named class members/object values; inverse operands and mixed data/object keys are tested. | Remaining-rules tests; imported chain/equality/key composition; key conflict/retraction |
+| `CLS_THING`, `CLS_NOTHING1`, `CLS_NOTHING2` | Built-in class declarations and contradiction on a Nothing instance. | Isolated rules; reasoner built-in node tests |
+| `CLS_INT1`, `CLS_INT2`, `CLS_UNI`, `CLS_COM` | Nonempty object intersection composition/decomposition, union membership from operands and complement conflicts. No disjunctive choice or general complement reasoning. | Isolated rules; public intersection/union queries and forbidden conclusions |
+| `CLS_SFV1`, `CLS_SFV2`, `CLS_AVF` | Existential membership from known edges/fillers, Thing filler, and universal propagation; data fillers use the datatype membership subset. No existential witness generation. | Isolated rules; datatype membership and public tests |
+| `CLS_HV1`, `CLS_HV2`, `CLS_OO` | Has-value in both directions and membership of object-enumeration members. Data has-value compares values. | Isolated rules; datatype has-value/export tests |
+| `CLS_MAXC1`, `CLS_MAXC2`, `CLS_MAXQC1`, `CLS_MAXQC2`, `CLS_MAXQC3`, `CLS_MAXQC4` | Object/data maximum zero/one, qualified fillers and Thing/top-datatype cases. Higher cardinalities have no evaluator. | Isolated object/data rules; qualified-filler conversion and public datatype tests |
+| `CAX_SCO`, `CAX_EQC1`, `CAX_EQC2` | Membership through subclass/equivalent-class closure. | Isolated rules; public types, instances and entailments |
+| `CAX_DW`, `CAX_ADC` | Disjoint-class conflicts; n-ary operands become pairs. | Isolated conflicts; converter pair matrix; reasoner empty-class tests |
+| `DT_TYPE1`, `DT_TYPE2`, `DT_EQ`, `DT_DIFF`, `DT_NOT_TYPE` | Named datatype identity, supported value membership/equality/inequality and lexical/membership conflicts. Value operations are helpers, not literal `sameAs` RDF triples; no complete datatype axiomatic graph is emitted. | Datatype support matrix, `DatatypeMembershipTest`, `DatatypeRuleTest`, `LiteralValuesTest`, `DatatypeConformanceIT` |
+| `SCM_CLS`, `SCM_SCO`, `SCM_EQC1`, `SCM_EQC2` | Class bounds, subclass transitivity and conversion between equivalence and mutual subclass relations. | Exact schema cases; public hierarchy and entailment cases |
+| `SCM_OP`, `SCM_DP`, `SCM_SPO`, `SCM_EQP1`, `SCM_EQP2` | Typed property reflexivity, transitivity and equivalence/subproperty conversion. | Exact schema cases; public property hierarchy/entailments |
+| `SCM_DOM1`, `SCM_DOM2`, `SCM_RNG1`, `SCM_RNG2` | Domain inheritance, object-range superclass propagation and object/data range inheritance down subproperties. `SCM_RNG1` has no general datatype-subsumption schema rule. | Exact schema cases; public domains/ranges |
+| `SCM_HV`, `SCM_SVF1`, `SCM_SVF2` | Has-value/property covariance and existential covariance; `SCM_SVF1` filler subsumption is implemented for object classes, not a general data-range lattice. | Exact object/data schema cases; datatype value-equal has-value case |
+| `SCM_AVF1`, `SCM_AVF2` | Object universal filler covariance and object/data property contravariance: if `p` is below `q`, `all q.C` is below `all p.C`. | Exact schema cases; public hierarchy, consistency, selection/export and SQWRL controls |
+| `SCM_INT`, `SCM_UNI` | Intersection-to-operand and operand-to-union subclass relations. | Exact schema cases; anonymous query preparation |
+
+#### Public reasoner queries
+
+`isEntailmentCheckingSupported` advertises the 15 axiom types below.
+`advertisedEntailmentTypesHavePositiveAndNegativePublicCases` exercises a derived
+or decomposed positive and a negative query for every advertised type, plus empty
+and mixed-true/false sets. This is a capability map, not a completeness guarantee
+for arbitrary expressions of those types.
+
+| Query surface | Supported behavior / limits |
+| --- | --- |
+| Subclass, class assertion | Uses materialized schema/membership; new query expressions are prepared without asserting them. Subclass reflexivity and Thing/Nothing bounds are handled explicitly. |
+| Object/data property assertions | Uses materialized assertions; inverse object assertion spelling is normalized and data assertion checks use value equality. |
+| Same/different individuals; equivalent/disjoint classes; equivalent object/data properties | Checks required pairs in multi-operand queries and extracts pairs from stored multi-operand axioms. It does not infer inequality from different names. |
+| Sub-object/data-property; object-property domain/range; data-property domain | Queries materialized schema consequences. |
+| Other axiom types | `isEntailmentCheckingSupported` returns false and `isEntailed` throws `UnsupportedEntailmentTypeException`. Axiom types can participate as input rules without being supported as entailment queries; keys, chains, data ranges and property characteristics are examples. |
+| Hierarchies, types, instances and property values | Named-entity results from the snapshot, with tested direct/transitive flags and equivalence groups. This is not complete classification of arbitrary anonymous expressions; inherited disjointness and general empty-class closure are not complete. |
+| `isSatisfiable`, bottom/unsatisfiable class nodes | Detects Nothing, classes below/equivalent to Nothing, and classes below disjoint parents. A true result is not proof of general class-expression satisfiability. No witness-based satisfiability procedure is implemented. |
+| `isConsistent` | False when supported rules find a contradiction; true means no supported contradiction was found. Unsupported constraints are not thereby validated. |
+| Ontology lifecycle | Imports and imported edits are included; additions/removals and import removal invalidate the non-buffering snapshot. Buffered changes take effect on `flush()`. The reasoner does not export inferred axioms; the rule engine's `infer()` does. |
+
+#### Unsupported constructs and converter audit
+
+Datatype definitions, facet constraints, data unions/complements/enumerations and
+cardinalities above one remain outside the evaluated subset described below.
+The ID-based data-range handler retains original OWLAPI objects for round trips,
+but its `DOO` fact does not carry enumeration literals and its `DRR` fact does not
+carry facets. Those are representation/evaluation limits, not evidence that a
+constraint has been checked.
+
+The separate legacy `DroolsOWLDataRange2DRConverter` throws
+`TargetSWRLRuleEngineNotImplementedFeatureException` for all its conversions and
+has no construction site in the engine's current source path. The active path is
+`DroolsOWLDataRangeHandler`. Property-expression built-in argument conversion
+also retains explicit stubs in `DroolsSWRLBuiltInArgument2BAConverter`; those are
+SWRL bridge extensions, not missing Table 9 rules.
+
+The axiom converter ignores datatype definitions, reflexive-property axioms,
+disjoint unions and annotation axioms. Class-expression representations exist for
+self restrictions and minimum/exact cardinalities, but the rule set does not
+supply their general semantics. General RDF metamodeling, arbitrary anonymous
+individual results and full satisfiability are outside this audit. Some of these
+constructs are outside the OWL 2 RL grammar; distinguish profile requirements
+from optional extensions before selecting further work in the [roadmap](roadmap.md).
+
 ### Datatype support matrix
 
 The declared reasoning subset follows the
@@ -229,6 +332,44 @@ retain the historical JVM-default-timezone interpretation.
 
 ## Last validation
 
+### Bounded OWL 2 RL conformance audit
+
+Verified **2026-11-26**, JDK 17 / Maven 3.9.14, with
+`mvn -o -B -f swrlapi-project/pom.xml -Pcore,static-analysis clean verify`:
+**BUILD SUCCESS**, **1,107 tests passed** (209 library unit tests, 180 engine
+unit/rule tests and 718 integration tests), with zero failures, errors or skips.
+SpotBugs reported zero findings, analyzer errors and missing classes in the three
+core production modules. Full log: `/tmp/swrlapi-rl-audit-core.log`.
+
+The regressions expose and verify seven defect families: reversed object/data
+universal-restriction subproperty inference; missing inequality propagation across
+individual aliases; existential rather than conjunctive axiom-set checking; n-ary
+entailment/pair extraction; missing preparation of new anonymous query expressions;
+inverse object-assertion entailment; and loss of the second equivalent object
+property during axiom export. Fresh-entity policy and annotation-insensitive
+entailment are also checked. The support matrix above records the tested subset
+and known limits rather than claiming complete standards conformance.
+
+Failing regressions were captured before their fixes in
+`/tmp/swrlapi-rl-audit-before.log`, `/tmp/swrlapi-rl-equality-before.log`,
+`/tmp/swrlapi-rl-audit-extended.log` and `/tmp/swrlapi-rl-export-before.log`.
+The first two diagnostic runs deliberately continued after test failures and are
+not passing gates. The final full gate includes all 20 new public integration
+tests, 29 isolated schema cases, the expanded 75-case assertion/equality suite,
+the rule coverage guard and real converter/extractor round trips.
+
+Before/after `javap -protected -s` output is identical for all **319 compiled
+SWRLAPI classes** and **156 engine classes**. Evidence:
+`/tmp/swrlapi-rl-api.diff` and `/tmp/swrlapi-drools-engine-rl-api.diff` are empty.
+Production and test sources were unchanged after the passing gate. Documentation
+links and instruction-file aliases were checked, and the rendered support matrix
+was inspected for readability.
+
+Protégé remains clean on `protege6/release-6.0.0-alpha-1` at
+`7c6d34f921cd33affa7aa075e1e28b10236d3648`. This was a **core-only** gate;
+the plugin was not rebuilt or retested. The plugin artifact and GUI evidence
+below predate these engine changes.
+
 ### Documentation and contributor validation
 
 Verified **2026-11-26** with the documented focused sibling plugin package command:
@@ -250,8 +391,8 @@ host remains clean at `7c6d34f921cd33affa7aa075e1e28b10236d3648`.
 
 Validated plugin SHA-256:
 `b4d965b03a0a6e41f3b5db484a0f22a3ec7ce6529be6236d74e9acec393518a4`.
-Its embedded library and engine jars match the current producers byte-for-byte;
-its HTML readme matches the current source. The contributor jar includes the exact
+Its embedded library and engine jars matched the producers built for that validation
+byte-for-byte; its HTML readme matched the source. The contributor jar includes the exact
 BSD text from `swrltab-plugin/license.txt`. Existing license terms and Stanford
 attribution are unchanged; copyright ranges now include 2026, and wiki checkouts
 include the same project license. README/local and cross-repository links, heading

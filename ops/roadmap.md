@@ -3,14 +3,15 @@
 Ordered backlog for the OWLAPI 5 migration. Remove completed items and keep evidence
 and operating instructions in [runbook.md](runbook.md).
 
-1. **Broader OWL 2 RL conformance.** Extend the isolated rule matrix and public API
-   tests, including combinations of chains, keys, equality, imports, retractions,
-   and datatype constraints. Audit unimplemented conversions and distinguish known
-   empty-class detection from general satisfiability. Completion: a documented
-   entailment/satisfiability support matrix and targeted regressions for each claim.
-   Use the runbook's datatype support matrix as the baseline; evaluate whether to
-   extend it to custom datatype definitions and facet constraints before claiming
-   support for those constructs.
+1. **Reasoning extensions beyond the audited subset.** Choose further capabilities
+   from the [rule/API support matrix](runbook.md#owl-2-rl-rule-and-api-support-matrix):
+   custom datatype definitions and facet evaluation, broader entailment and inherited
+   disjointness, complete empty-class/satisfiability reasoning, or anonymous-individual
+   and RDF metamodeling support. Distinguish required OWL 2 RL cases from optional
+   out-of-profile extensions before selecting work. Address the remaining data-range
+   and property-expression built-in converter stubs only with an agreed contract.
+   Completion for each selected extension: positive, negative and interaction tests,
+   an updated support matrix, and preserved public SWRLAPI API compatibility.
 
 2. **Drools upgrade assessment.** Evaluate a separate migration from the currently
    pinned 7.74.1.Final to Apache KIE / Drools 10.2.0 (latest verified 2026-11-26).
