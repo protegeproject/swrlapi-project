@@ -76,9 +76,11 @@ jobs:
           done
       - name: Strict nullness, tests, and SpotBugs
         timeout-minutes: 20
-        run: >-
-          mvn -B -f swrlapi-project/pom.xml -Pcore,nullness,static-analysis
-          -Duser.timezone="$TEST_TIMEZONE" clean verify > core-validation.log 2>&1
+        shell: bash
+        run: |
+          set -o pipefail
+          mvn -B -f swrlapi-project/pom.xml -Pcore,nullness,static-analysis \
+            -Duser.timezone="$TEST_TIMEZONE" clean verify 2>&1 | tee core-validation.log
       - name: Verify checker enforcement and dependency stubs
         run: python3 swrlapi-project/ops/experiments/check-nullness-profile.py
       - name: Retain validation evidence
