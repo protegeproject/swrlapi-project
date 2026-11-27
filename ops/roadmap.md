@@ -61,6 +61,8 @@ and operating instructions in [runbook.md](runbook.md).
 
 7. **Repeatable validation and release readiness.** Add CI coverage for the supported
    JDKs, timezone variants, and the core/static-analysis profiles; retain test reports.
+   Promote the reconciled dependency fixes from `protege-6` to the appropriate
+   default/release branches and verify GitHub refreshes the parent dependency alerts.
    Record the sibling repository
    revisions used for releases, dependency versions, and release notes. Completion:
    a clean-checkout build, reproducible dependency resolution, and an explicit plugin
