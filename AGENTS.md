@@ -21,8 +21,9 @@ Explicit user instructions and agreed scope take precedence over these defaults.
   build, dependency-resolution, and test steps are part of the requested work; do
   not ask again for steps the user already authorized. Continue independent work
   while a genuinely necessary clarification is pending.
-- Preserve the agreed scope. The current compatibility port does not authorize a
-  streams refactor, a Drools major-version upgrade, or SWRLTab/Protégé migration.
+- Preserve the agreed scope. The current scope includes the core compatibility port and SWRLTab plugin
+  experiments on Protégé `protege6/release-6.0.0-alpha-1`. It does not authorize a
+  streams refactor, a Drools major-version upgrade, or the standalone SWRLTab port.
   Their order and remaining work are in the roadmap. A dependency upgrade is not
   permission to redesign public APIs or product behavior.
 - Report observable outcomes, tested boundaries, and remaining limitations. Do not

@@ -14,7 +14,10 @@ and the [Protégé SWRLTab Plugin](https://github.com/protegeproject/swrltab-plu
 
 The `core` profile builds the local parent POM, SWRLAPI, the Drools engine,
 the example application, and the integration tests in one reactor. It excludes
-both SWRLTab modules; their OWLAPI 5 / Protégé integration is deferred.
+both SWRLTab modules. The separate `protege-plugin` profile adds the Protégé 6
+plugin to the core reactor; the standalone application remains deferred. See the
+[plugin experiment](ops/runbook.md#protege-6-plugin-experiment) for packaging and
+runtime verification commands.
 
 With those repositories checked out as sibling directories, run from
 `swrlapi-project`:
@@ -33,7 +36,8 @@ Downstream applications must recompile against OWLAPI 5. OWLAPI 5 normalizes
 language-free `rdf:PlainLiteral` values to `xsd:string`; read such query results
 with `isString()` / `getString()` rather than `isRDFPlainLiteral()` /
 `getRDFPlainLiteral()`. Language-tagged literals retain their language tags.
-Guava is aligned with OWLAPI 5.5.1 at 33.0.0-jre.
+The 2.1.5-SNAPSHOT parent manages patched Guava, Jackson, and XStream versions;
+see the [dependency baseline](ops/runbook.md#dependency-security-baseline).
 
 The clean OWLAPI 4.5.27 baseline passed 166 unit tests and 607 integration
 tests. Current validation totals, outcomes, and exact commands are maintained in
