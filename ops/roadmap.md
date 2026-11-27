@@ -43,6 +43,8 @@ and operating instructions in [runbook.md](runbook.md).
    JDKs, timezone variants, and the core/static-analysis profiles; retain test reports.
    Promote the reconciled dependency fixes from `protege-6` to the appropriate
    default/release branches and verify GitHub refreshes the parent dependency alerts.
+   Triage the Protégé default-branch dependency alerts, distinguishing fixes awaiting
+   integration from dependencies that still need updates.
    Integrate the tested local Protégé alpha host fixes (Guava/Jackson runtime bundle
    and JDK 17 appearance menu) upstream or into an identified host release before
    advertising public plugin compatibility. Record the sibling and host revisions,

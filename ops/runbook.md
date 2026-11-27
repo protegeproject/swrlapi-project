@@ -268,6 +268,10 @@ builds its own OWLAPI runtime bundle from the plain distribution, embedding mana
 Jackson 2.21.9 / annotations 2.21. The assembled host verifier checks those actual
 nested bytes and Guava 33.8.0-jre. This does not constitute an advisory audit of
 every dependency in the Protégé distribution.
+The GitHub push response on 2026-11-26 reported 12 dependency alerts on Protégé's
+default branch (two high, five moderate, five low). Those alerts were not individually
+triaged by this migration; the count concerns the default branch and does not
+establish which findings remain in the tested review-branch distribution.
 POI is not a dependency of this project and is outside this work.
 
 Eight added integration tests cover:
