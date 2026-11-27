@@ -60,6 +60,11 @@ and operating instructions in [runbook.md](runbook.md).
    query, editing, and lifecycle workflows pass. Prepare a focused report with the
    host revision and log excerpt from the runbook; consider Swing's registered
    look-and-feel metadata for name lookup without proposing dependency upgrades.
+   Also report that unmodified `6.0.0-alpha-1` retains the
+   `plugin.registry-5.0.url` preference key and the `update-info/5.0.0` registry
+   default: a fresh Protégé 6 installation consequently searches the legacy catalog.
+   Coordinate a separate Protégé 6 registry/default with its maintainers before
+   registering the new SWRLTab release; never redirect the Protégé 5 feed to it.
    Record additional communication candidates here as they arise. Send notifications
    or open upstream issues only when explicitly authorized. Completion: agreed
    notifications delivered and their issue links or responses recorded in the runbook.

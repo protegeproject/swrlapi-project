@@ -1,0 +1,38 @@
+name: Plugin update channels
+on:
+  push:
+    branches: [protege-6]
+  pull_request:
+    branches: [protege-6]
+  workflow_dispatch:
+  workflow_call:
+permissions:
+  contents: read
+jobs:
+  verify-update-channels:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          repository: protegeproject/swrlapi-project
+          ref: protege-6
+          path: swrlapi-project
+          persist-credentials: false
+      - uses: actions/checkout@v7
+        with:
+          repository: protegeproject/swrltab-plugin
+          ref: protege-6
+          path: swrltab-plugin
+          persist-credentials: false
+      - name: Check out the triggering revision
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ github.repository }}
+          ref: ${{ github.sha }}
+          path: ${{ github.event.repository.name }}
+          persist-credentials: false
+      - name: Test update-channel safeguards
+        run: python3 -m unittest discover -s swrlapi-project/release -p 'test_plugin_update_channels.py'
+      - name: Validate plugin update metadata and host imports
+        run: python3 swrlapi-project/release/check-plugin-update-channels.py swrltab-plugin

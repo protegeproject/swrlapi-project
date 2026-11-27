@@ -33,7 +33,7 @@ public class PluginUpdateSmoke {
           + "/src/main/resources/readme.html";
         if (!readme.equals(info.getReadmeURI().orElseThrow().toString()))
           throw new AssertionError("Readme must identify the same release tag");
-        if (!"SWRLTab".equals(info.getLabel())) throw new AssertionError("Missing plugin label");
+        if (!"SWRLTab (Protege 6 only)".equals(info.getLabel())) throw new AssertionError("Missing plugin label");
         System.out.println("PASS: Protégé update parser accepts release metadata for " + id + " " + release);
         System.out.println("Template validation only; release URLs were not fetched or published.");
       } finally {

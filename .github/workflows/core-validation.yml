@@ -75,6 +75,7 @@ jobs:
             git -C "$repo" log -1 --format='%H %s' >> revisions.txt
           done
       - name: Strict nullness, tests, and SpotBugs
+        timeout-minutes: 20
         run: >-
           mvn -B -f swrlapi-project/pom.xml -Pcore,nullness,static-analysis
           -Duser.timezone="$TEST_TIMEZONE" clean verify > core-validation.log 2>&1

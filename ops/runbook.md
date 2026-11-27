@@ -1023,9 +1023,14 @@ java -cp swrltab/target/swrltab-2.1.5-SNAPSHOT-application/swrltab-2.1.5-SNAPSHO
 The existing Protégé 5 update feed remains on its released 2.1.4 version. The
 Protégé 6 `update.properties.template` is deliberately unpublished; it uses a
 release-version placeholder and immutable release-tag links for both jar and
-readme. Validate it against the built plugin with the actual host parser:
+readme, and is labelled `SWRLTab (Protege 6 only)`. The Protégé 5 readme is also
+pinned to `release-2.1.4` on this branch so a later default-branch promotion cannot
+show Protégé 6 instructions to legacy users. Validate both channels and the actual
+packaged host imports, then use the host's update parser:
 
 ```sh
+python3 swrlapi-project/release/check-plugin-update-channels.py swrltab-plugin \
+  --bundle swrltab-plugin/target/swrltab-plugin-2.1.5-SNAPSHOT.jar
 java -cp "$protege_dist/bundles/*" \
   swrlapi-project/ops/experiments/PluginUpdateSmoke.java \
   swrltab-plugin/update-info/protege-6/update.properties.template \
@@ -1033,9 +1038,31 @@ java -cp "$protege_dist/bundles/*" \
 python3 -m unittest discover -s swrlapi-project/release -p 'test_*.py'
 ```
 
-The parser check and all six release-tool tests pass. The parser check renders a
-temporary candidate based on the bundle version, verifies identity/version/tagged URLs, and makes no download or
-publication request. Two release-script tests validate inherited project versions,
+The parser check and all fifteen release-tool tests pass. Nine update-channel
+regressions cover the real metadata plus unsafe version/download/readme changes,
+missing host labels, SNAPSHOT publication, relaxed/optional imports, and weakened
+packaged manifests. The current plugin's real manifest passes the same guard.
+The dedicated `Plugin update channels` workflow runs the source guard and its
+regressions for project/plugin pushes and pull requests on `protege-6`.
+
+Verified live on 2026-11-27: the
+[Protégé 5 registry](https://github.com/protegeproject/autoupdate/blob/master/update-info/5.0.0/plugins.repository)
+references the plugin's `master/update-info/protege-5/update.properties`, which
+still advertises only the released 2.1.4 jar. The
+[Protégé 6 registry](https://github.com/protegeproject/autoupdate/blob/master/update-info/6.0.0/plugins.repository)
+does not yet list SWRLTab. Neither registry nor the live `master` feed was changed.
+
+The host update parser reads plugin identity, plugin version and URLs; it does not
+check a minimum Protégé version. Separate registries/feeds protect discovery, while
+the plugin's mandatory `[6.0.0,7.0.0)` imports protect loading. Manual copying or
+pointing a client at the wrong registry can still offer/install an incompatible jar,
+which must then fail OSGi resolution; the metadata is not a download-time host check.
+The unmodified alpha-1 source at `7c6d34f` still uses `plugin.registry-5.0.url` and the
+5.0.0 registry as its default. This host issue is queued for maintainer coordination
+in the roadmap; the host remains unchanged.
+
+The parser check renders a temporary candidate based on the bundle version,
+verifies identity/version/tagged URLs, and makes no download or publication request. Two release-script tests validate inherited project versions,
 release/next-snapshot SCM tags, absent optional siblings, and wrong-branch rejection
 without writes. Four bundle-verifier tests check inherited versions, mandatory
 standalone zip inclusion, and archive checksum validation; only the external GPG

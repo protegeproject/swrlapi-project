@@ -84,6 +84,23 @@ tagging. Keep the Protégé 5 feed on its compatible released version; never poi
 at the Protégé 6 build. Validate the new metadata using the host parser as described
 in the runbook. The template's jar and readme URLs identify the same immutable tag.
 
+Run the update-channel guard from the workspace root before preparing any release:
+
+```sh
+python3 swrlapi-project/release/check-plugin-update-channels.py swrltab-plugin \
+  --bundle swrltab-plugin/target/swrltab-plugin-2.1.5-SNAPSHOT.jar
+python3 -m unittest discover -s swrlapi-project/release -p 'test_plugin_update_channels.py'
+```
+
+Use the candidate jar's actual version/path after version alignment. The legacy
+feed is deliberately frozen at 2.1.4; a future compatible Protégé 5 maintenance
+release requires an explicit change to that baseline and its guard. The new feed
+must keep the `Protege 6 only` label. Do not add it to the Protégé 5 registry:
+the update parser does not enforce a host-version field. The mandatory OSGi host
+imports prevent loading on Protégé 5 but do not prevent an incorrect feed offering
+the download. The unmodified 6.0.0-alpha-1 host's old registry default must be
+coordinated with its maintainers before public registration; see the runbook.
+
 Upload the verified plugin JAR to the corresponding GitHub release, verify the
 auto-update download URL resolves to those exact bytes, and only then register
 its metadata URL in the Protégé 6 registry. Upload the standalone application zip
