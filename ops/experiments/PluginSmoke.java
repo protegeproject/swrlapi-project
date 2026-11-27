@@ -4,6 +4,7 @@ import org.osgi.framework.Constants;
 import org.osgi.framework.launch.Framework;
 
 import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.math.BigInteger;
@@ -19,6 +20,7 @@ public class PluginSmoke {
   public static void main(String[] args) throws Exception {
     if (args.length < 2 || args.length > 3)
       throw new IllegalArgumentException("Usage: PluginSmoke <Protege directory> <plugin jar> [UI fixture output]");
+    assertBundleContents(Path.of(args[1]));
     System.setProperty("java.awt.headless", "true");
     Path storage = Files.createTempDirectory("swrlapi-osgi-");
     Map<String, String> config = new HashMap<>();
@@ -100,6 +102,7 @@ public class PluginSmoke {
         throw new AssertionError("Missing asserted Person control");
       call(engine, "createSWRLRule", new Class<?>[]{String.class, String.class},
         "personToAdult", "Person(?p) -> Adult(?p)");
+      assertRuleRendering(plugin, ontology);
       if (args.length == 3) {
         Class<?> iri = plugin.loadClass("org.semanticweb.owlapi.model.IRI");
         Object destination = iri.getMethod("create", String.class).invoke(null, Path.of(args[2]).toUri().toString());
@@ -115,7 +118,7 @@ public class PluginSmoke {
       Object individual = call(after, "getNamedIndividual", new Class<?>[]{int.class}, 0);
       if (!"urn:swrlapi:smoke#alice".equals(call(individual, "getIRI", new Class<?>[0]).toString()))
         throw new AssertionError("Rule inferred the wrong individual");
-      System.out.println("PASS: packaged SWRLTab resolves; both tab classes load; SQWRL 2 + 3 = 5; rule infers Adult(alice)");
+      System.out.println("PASS: packaged SWRLTab resolves; both tab classes load; rule rendering preserves prefixes and variables; SQWRL 2 + 3 = 5; rule infers Adult(alice)");
     } finally {
       Thread.currentThread().setContextClassLoader(originalLoader);
       framework.stop();
@@ -123,6 +126,58 @@ public class PluginSmoke {
       // Keep isolated framework storage available for diagnosis; it never uses ~/.Protege.
       System.out.println("Felix diagnostics: " + storage);
     }
+  }
+
+  private static void assertBundleContents(Path plugin) throws Exception {
+    int engineJars = 0;
+    try (JarFile jar = new JarFile(plugin.toFile())) {
+      var entries = jar.entries();
+      while (entries.hasMoreElements()) {
+        String name = entries.nextElement().getName();
+        if (name.matches("(?:checker|jdk8|junit|slf4j-log4j12|slf4j-simple|owlapi-osgidistribution|protege-editor-owl)-[0-9].*\\.jar"))
+          throw new AssertionError("Unwanted compiler, test, or host dependency embedded: " + name);
+        if (name.matches("swrlapi(?:-drools-engine)?-[0-9].*\\.jar")) engineJars++;
+      }
+    }
+    if (engineJars != 2) throw new AssertionError("Missing embedded SWRLAPI/engine jars");
+  }
+
+  private static void assertRuleRendering(Bundle plugin, Object ontology) throws Exception {
+    Class<?> finderType = plugin.loadClass("org.protege.editor.owl.model.find.OWLEntityFinder");
+    Class<?> entityType = plugin.loadClass("org.protege.editor.owl.ui.renderer.OWLModelManagerEntityRenderer");
+    Class<?> modelType = plugin.loadClass("org.protege.editor.owl.model.OWLModelManager");
+    Class<?> objectType = plugin.loadClass("org.protege.editor.owl.ui.renderer.OWLObjectRenderer");
+    Class<?> iriType = plugin.loadClass("org.semanticweb.owlapi.model.IRI");
+    ClassLoader loader = entityType.getClassLoader();
+    Object entities = Proxy.newProxyInstance(loader, new Class<?>[]{entityType}, (proxy, method, args) -> {
+      if (method.getName().equals("render") || method.getName().equals("getShortForm")) {
+        Object iri = iriType.isInstance(args[0]) ? args[0] : call(args[0], "getIRI", new Class<?>[0]);
+        String name = call(iri, "getShortForm", new Class<?>[0]).toString();
+        return iri.toString().startsWith("urn:swrlapi:smoke#") ? ":" + name : name;
+      }
+      throw new AssertionError("Unexpected entity renderer call: " + method);
+    });
+    Object model = Proxy.newProxyInstance(loader, new Class<?>[]{modelType}, (proxy, method, args) -> {
+      if (method.getName().equals("getOWLEntityRenderer")) return entities;
+      if (method.getName().equals("getRendering"))
+        return entityType.getMethod("render", plugin.loadClass("org.semanticweb.owlapi.model.OWLEntity"))
+          .invoke(entities, args[0]);
+      throw new AssertionError("Unexpected model manager call: " + method);
+    });
+    Object finder = Proxy.newProxyInstance(loader, new Class<?>[]{finderType}, (proxy, method, args) -> {
+      throw new AssertionError("Rendering must not look up entities: " + method);
+    });
+    Object hostRenderer = plugin.loadClass("org.protege.editor.owl.ui.renderer.OWLObjectRendererImpl")
+      .getConstructor(modelType).newInstance(model);
+    Object resolver = plugin.loadClass("org.swrltab.core.ProtegeIRIResolver")
+      .getConstructor(finderType, entityType, objectType).newInstance(finder, entities, hostRenderer);
+    call(resolver, "updatePrefixes", new Class<?>[]{plugin.loadClass("org.semanticweb.owlapi.model.OWLOntology")}, ontology);
+    int matches = 0;
+    for (Object axiom : (Iterable<?>)call(ontology, "getAxioms", new Class<?>[0])) {
+      String rendering = call(resolver, "render", new Class<?>[]{plugin.loadClass("org.semanticweb.owlapi.model.OWLObject")}, axiom).toString();
+      if (rendering.equals("swrlb:add(?sum, 2, 3) -> sqwrl:select(?sum)")) matches++;
+    }
+    if (matches != 1) throw new AssertionError("Expected exactly one correctly rendered arithmetic query, got " + matches);
   }
 
   private static Object call(Object object, String name, Class<?>[] types, Object... values) throws Exception {

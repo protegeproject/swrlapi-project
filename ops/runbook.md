@@ -238,6 +238,39 @@ on the artifact version prevented resolution. bnd now derives those imports in
 all three bundles. The plugin no longer declares the host's `ProtegeOWL` activator,
 which would replace the host's static bundle context with the plugin context.
 
+The plugin POM declares host APIs as `provided`, obtains Drools transitively from
+`swrlapi-drools-engine`, and embeds an explicit runtime allowlist. It excludes the
+old Checker compiler and annotated JDK 8 jars; annotation types remain available.
+JUnit and the simple SLF4J binding are test-only. The unused CDI/JPA dependencies,
+Maven integration payload, duplicate version properties, and redundant
+install-time manifest execution have been removed. Drools' OSGi compiler adapter
+remains a runtime dependency, with its unused Spring dependencies excluded.
+Remaining optional imports cover unused Axis SOAP providers and Drools integrations;
+Java desktop/XML APIs
+remain required. The packaged smoke test rejects compiler/test/host jars in the
+bundle and requires both embedded SWRLAPI jars.
+
+SWRL objects in the axiom panels use a Manchester renderer with explicit built-in
+prefixes and variable names: `swrlb:add(?sum, 2, 3) -> sqwrl:select(?sum)`.
+Ordinary OWL objects still use the host renderer, and class/individual display
+names inside rules retain the host's entity rendering. This operates on typed
+objects, so literal text resembling rule syntax is not rewritten.
+Eight plugin tests cover the arithmetic query, default and explicit variable
+namespaces, custom built-in prefixes, literal text, ordinary OWL delegation,
+anonymous class expressions, and the actual Asserted Axioms Swing table on the EDT.
+Four of the initial six tests reproduced the old rendering failure before the fix.
+
+The plugin packaging reactor passed 201 library, 66 engine, and 8 plugin tests
+(275 total, zero failures/errors/skips). Log: `/tmp/swrlapi-clean-plugin-pom.log`.
+The existing 944-test full core result above remains separate; the plugin is not
+part of that core-only gate. Extending `static-analysis` to the plugin currently
+fails on two pre-existing custom built-in factory defects (`NP_ALWAYS_NULL` and
+`UWF_NULL_FIELD`), with no analyzer errors. These findings are not suppressed;
+repair is tracked in the roadmap. Log: `/tmp/swrlapi-rendering-verify.log`.
+bnd also reports the factory API's private-package references and a nested
+multi-release `module-info.class` warning. Package loading and runtime behavior
+are checked separately by the OSGi smoke test below.
+
 Run the packaged artifact in a fresh Felix framework using
 [PluginSmoke.java](experiments/PluginSmoke.java):
 
@@ -250,13 +283,14 @@ java -cp "$HOME/.m2/repository/org/apache/felix/org.apache.felix.main/7.0.5/org.
 ```
 
 Verified 2026-11-26: **PASS**. The actual bundle becomes ACTIVE, both tab classes
-load against the host's packages, SQWRL arithmetic returns exactly `5`, and a rule
+load against the host's packages, axiom rendering preserves built-in prefixes and
+variable names, SQWRL arithmetic returns exactly `5`, and a rule
 infers exactly `Adult(alice)` after an initial empty-result control. The source
 fixture also asserts `Person(alice)` as a positive control. The final optional
 argument writes an ontology before inference for graphical testing. Felix storage
 is isolated in a temporary directory printed by the harness; it does not use the
 user's Protégé plugin cache. This is an OSGi functional test, not a graphical test.
-Log: `/tmp/swrlapi-osgi-smoke.log`.
+Log for the final cleaned POM and renderer: `/tmp/swrlapi-clean-pom-osgi.log`.
 
 Local graphical copies are under `/Users/martin/workspace/protege/runtime-alpha-1`
 and `runtime-alpha-1-mac/Protégé.app`. The latter contains the tested plugin in
@@ -268,19 +302,49 @@ The temporary look-and-feel choice was restored and standard tabs re-enabled.
 
 Graphical procedure: open `/tmp/swrlapi-plugin-smoke.ttl`, enable **Window → Tabs →
 SWRLTab** and **SQWRLTab**, then select each panel. Both panels were observed
-rendering the rule/query table and recognizing Drools. Still to verify interactively:
+rendering the rule/query table and recognizing Drools. Martin subsequently reported
+on 2026-11-26 that the graphical Run/import/export and query workflows work. This
+closes the previously outstanding manual smoke verification; it is user-reported
+evidence, separate from the automated OSGi test. Repeatable smoke procedure:
 
 - In SWRLTab, use **OWL+SWRL→Drools**, **Run Drools**, then **Drools→OWL**; inspect
   `Adult(alice)` in the ontology, not just a success message.
 - In SQWRLTab, select `osgiSmoke` and **Run**; expect one row containing `5`.
-  Run `before` after rule execution and expect `alice`. Edit/delete rules and switch
-  ontologies to check invalidation and listener lifecycle.
+  Run `before` after rule execution and expect `alice`.
 
-The computer-control tool could operate native menus and dialogs but neither
-exposed nor successfully clicked the Swing content controls, so these button-driven
-journeys are **not claimed as passed**. The platform-independent macOS launcher
-also logs an Aqua look-and-feel reflective-access error on JDK 17; the packaged
-macOS application's log did not contain that error.
+The final cleaned-POM/renderer jar was independently retested through the full
+macOS application on 2026-11-26, using the separate copy
+`/Users/martin/workspace/protege/runtime-rendering-test/SWRL Rendering Test.app`
+and `/tmp/swrlapi-rendering-smoke.ttl`. The built jar and installed jar both have
+SHA-256 `27eb88c14dd72dd5857990a3ce78b11f8f825252a2dc29de0f2ebf34b3d26e72`.
+The application's own log identifies Protégé 6.0.0 alpha-1, OWLAPI 5.5.1,
+JDK 17, and SWRLTab 2.1.5.SNAPSHOT; it is at
+`/tmp/swrlapi-rendering-test-user/.Protege/logs/protege.log`.
+
+Observed through computer control: both panels loaded; import transferred nine
+axioms; Run Drools succeeded and the Inferred Axioms table contained
+`:alice Type :Adult`; export reported successful transfer to the OWL model.
+The Asserted Axioms table visibly showed
+`swrlb:add(?sum, 2, 3) -> sqwrl:select(?sum)`.
+Running `osgiSmoke` in SQWRLTab returned one row, and its result table displayed
+column `sum` with value `5`. Native menus enabled the tabs; some Swing controls
+required screenshot-based clicks, and query selection used keyboard navigation
+from the New button after cancelling the editor. The test copy remains open with
+the result visible; the user's previous application was not replaced or closed.
+This is actual graphical-host evidence in addition to the isolated OSGi harness.
+
+Broader graphical regressions for editing/deleting rules, switching ontologies,
+and listener lifecycle remain on the roadmap; these additional cases were not
+established by the smoke test.
+
+The platform-independent macOS launcher
+logs an Aqua look-and-feel reflective-access error on JDK 17. Host code in
+`Workspace.addLookAndFeelMenuItem` tries to construct `com.apple.laf.AquaLookAndFeel`
+reflectively to obtain its display name, but `java.desktop` does not export that
+package to the caller. The host catches the exception and omits that appearance
+menu entry; this observed error is outside rule/query execution. The packaged
+macOS application's log did not contain it. A host UI/launcher correction and
+retest remain necessary for the affected launch path.
 
 The macOS host log is `/tmp/swrlapi-protege-mac-user/.Protege/logs/protege.log`.
 It confirms plugin 2.1.5.SNAPSHOT and OWLAPI 5.5.1, and reports an undeclared custom
