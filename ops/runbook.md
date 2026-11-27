@@ -3,8 +3,8 @@
 The shared [development rules](../AGENTS.md) apply to every sibling repository.
 This runbook covers the compatibility-first OWLAPI 5 port and its Drools engine.
 The ordered backlog lives in [roadmap.md](roadmap.md). The Protégé 6 plugin is
-under experimental validation; standalone SWRLTab and the streams refactor remain
-deferred.
+under experimental validation. The internal OWLAPI streams migration preserves
+the public SWRLAPI API; standalone SWRLTab remains deferred.
 
 ## Checkout layout and versions
 
@@ -97,6 +97,61 @@ Use isolated rule tests where alternate inference paths could hide a defect.
 Before review, run `git -c core.whitespace=cr-at-eol diff --check` in each changed
 repository. Existing sources use mixed LF and CRLF; preserve the file's format.
 
+## OWLAPI stream accessors
+
+Internal OWLAPI traversal in the library, Drools converters/reasoner, and plugin
+renderer uses the OWLAPI 5 stream accessors for axioms, signatures, annotations,
+rule bodies/heads/arguments, class/data-range operands, and reasoner node entities.
+The public SWRLAPI interfaces, method signatures, return types, collection
+mutability, and eager error behavior remain unchanged. No parallel traversal is
+introduced.
+
+Keep eager `asSet` / `asList` snapshots where callers mutate state, perform multiple
+passes, or rely on collection evaluation before processing. Import-aware axiom
+streams can repeat equal axioms from different ontologies; ordered sets or
+`distinct()` retain the old deduplication. N-ary converters reuse one ordered
+operand snapshot and keep independent mutable copies for directed pair expansion.
+Existing `HashSet(Collection)` construction is retained where replacing it with a
+collector could change capacity and iteration order used to allocate internal IDs.
+
+OWLAPI's no-argument `getSignature()` delegates to `unsortedSignature()`, so its
+replacements use that stream to preserve encounter order. Custom built-in argument
+signature methods traverse bindings eagerly with identity-based cycle detection;
+their public stream methods still capture detached collection snapshots before
+returning. Changing a binding after obtaining a stream does not alter that stream,
+and traversal errors remain immediate.
+
+The source audit retains these intentional collection boundaries:
+
+- Public SWRLAPI collection methods and custom signature stream adapters preserve
+  existing dispatch, mutability, snapshots, and exception behavior.
+- `getPropertyChain()` is an ordered OWLAPI list without a direct stream accessor;
+  chain position is semantically significant.
+- `asPairwiseAxioms()` performs semantic axiom expansion and has no direct stream
+  replacement; its collection is streamed where needed.
+- SWRLAPI multi-value argument lists and Drools path arguments are SWRLAPI-owned
+  collections, not OWLAPI accessors.
+
+Regression coverage includes duplicate/transitive/unrelated imports, live versus
+independent collections, binding changes after stream creation, cycles, eager
+failures, signature encounter order, annotated rule import, every directed pair
+for eight kinds of n-ary axiom, nested class operands, and data-range operand
+round trips. The signature-order regression failed with `signature()` and passes
+with `unsortedSignature()`; its negative log is `/tmp/swrlapi-stream-order-before.log`.
+The data-range tests verify representation preservation, not additional datatype
+inference support.
+
+The before/after `javap -public -s` comparison is identical across all 454 library,
+154 Drools engine, and 10 plugin classes: public signatures and JVM descriptors
+are unchanged. The rebuilt plugin embeds the current library and engine jars
+byte-for-byte. Packaged Protégé 6 alpha-1 OSGi validation passes for both tab classes,
+rule/variable rendering, arithmetic result `5`, third-party query result `42` with
+an empty negative control, and independent `Adult` / `ContributedAdult` inference.
+Log: `/tmp/swrlapi-streams-complete-osgi.log`; plugin SHA-256:
+`bf460dda08a6b8314b54d52e2ccebca4f2ef1a3b1703411cdb45f7cf89648308`.
+This is a packaged framework check; the graphical host was not rerun for this
+internal refactor. The full Maven gate is recorded below.
+
 ## Runtime behavior and boundaries
 
 `getOWLReasoner()` caches a non-buffering reasoner over an isolated snapshot of the
@@ -135,15 +190,17 @@ retain the historical JVM-default-timezone interpretation.
 
 ## Last validation
 
-Verified **2026-11-26**, JDK 17, with the full offline core/static-analysis command
-above: **BUILD SUCCESS**.
+Verified **2026-11-26**, JDK 17, with the full offline
+`mvn -o -B -f swrlapi-project/pom.xml -Pcore,protege-plugin,static-analysis verify`
+gate: **BUILD SUCCESS**.
 
 | Suite | Tests | Failures | Errors | Skipped |
 | --- | ---: | ---: | ---: | ---: |
-| Library unit/contract tests | 201 | 0 | 0 | 0 |
-| Drools engine unit/rule tests | 66 | 0 | 0 | 0 |
-| Public API/query integration tests | 677 | 0 | 0 | 0 |
-| Total | 944 | 0 | 0 | 0 |
+| Library unit/contract tests | 209 | 0 | 0 | 0 |
+| Drools engine unit/rule tests | 76 | 0 | 0 | 0 |
+| Plugin unit/contract tests | 21 | 0 | 0 | 0 |
+| Public API/query integration tests | 680 | 0 | 0 | 0 |
+| Total | 986 | 0 | 0 | 0 |
 
 SpotBugs reported **zero high-confidence findings** in all analyzed production
 modules. Coverage includes 54 isolated RL rule cases, 20 chain/key/datatype
@@ -154,11 +211,12 @@ failed before the cache fix. The engine compares source axioms (including import
 as well as change flags before reusing compiled rules, because UI model processing
 can clear the bridge flag before a run.
 
-The local full build log is `/tmp/swrlapi-plugin-final-core.log`; durable test/report
+The local full build log is `/tmp/swrlapi-streams-complete-final.log`; durable test/report
 locations are listed above. Documentation checks confirmed that all shared-rule
 aliases resolve to the canonical file, local guidance links resolve, roadmap
 numbering is contiguous, and changed repositories pass the whitespace check.
-The full core gate excludes SWRLTab/plugin builds and does not establish full RL/DL conformance.
+The `core` profile alone excludes plugin builds; this combined gate adds the
+plugin profile. Neither gate establishes full RL/DL conformance or graphical UI coverage.
 
 ## Dependency security baseline
 
@@ -267,9 +325,8 @@ contribution sets, positive and negative queries, saved-query import, contribute
 rule inference, collision rejection, atomic validation, and cleanup on failure.
 The original four factory cases failed before the fix (three assertion failures
 and the null dereference), recorded in `/tmp/swrlapi-contributor-before.log`.
-The combined `-Pcore,protege-plugin,static-analysis verify` gate passed 965 tests
-(201 library, 66 engine, 21 plugin, 677 integration), with zero failures, errors,
-or skips. Log: `/tmp/swrlapi-prefix-full.log` (2026-11-26).
+The latest combined `-Pcore,protege-plugin,static-analysis verify` results,
+including these plugin regressions, are recorded under **Last validation** above.
 The plugin static-analysis gate now reports zero findings and zero analyzer errors;
 the two factory null defects are fixed without suppressions.
 
