@@ -2,9 +2,9 @@
 
 The shared [development rules](../AGENTS.md) apply to every sibling repository.
 This runbook covers the compatibility-first OWLAPI 5 port and its Drools engine.
-The ordered backlog lives in [roadmap.md](roadmap.md). The library, standalone
-application, and plugin pass the migration gates below, including graphical
-workflows on unmodified Protégé 6 alpha-1. No host source or dependency upgrade is
+The ordered backlog lives in [roadmap.md](roadmap.md). The validation records below
+separate the core datatype changes from the earlier full build and graphical
+workflows on unmodified Protégé 6 alpha-1. No host source or dependency upgrade was
 required for those workflows. The internal OWLAPI streams migration preserves the
 public SWRLAPI API. These are development builds; public release is separate.
 
@@ -78,6 +78,10 @@ mvn -o -B -f swrlapi-project/pom.xml -Pcore \
 The Surefire option permits modules with no matching unit tests. Keep the Failsafe
 selection explicit and confirm that the named integration classes actually ran.
 A focused run supplements the full gate; it does not establish full compatibility.
+
+For datatype regressions, use the same reactor with
+`-Dtest=LiteralValuesTest,DatatypeRuleTest,DatatypeMembershipTest,OperandTraversalTest,OWL2RLRuleTest`
+and `-Dit.test=DatatypeConformanceIT,OWL2RLRemainingRulesIT,DroolsOWLReasonerIT`.
 
 For timezone regressions, repeat relevant temporal tests with `-Duser.timezone=UTC`
 and `-Duser.timezone=America/Los_Angeles` in separate Maven invocations. Keep the
@@ -173,13 +177,46 @@ operands: `getObjectPropertyExpressions()` returns the signature, losing inverse
 and including properties from the key class expression. The current converter
 filters `getPropertyExpressions()` instead; regression tests cover both cases.
 
-Datatype checks cover built-in lexical forms, numeric bounds, ranges, universal
-restrictions, and intersections. Unknown/custom datatypes are left undecided.
-XML canonical equivalence and value semantics throughout older data-property rules
-remain roadmap work. This is not a complete OWL 2 DL reasoner or a claim of complete
-RL conformance. Unsupported entailment axiom types throw
+Datatype reasoning uses the support matrix below. This is not a complete OWL 2 DL
+reasoner or a claim of complete RL conformance. Unsupported entailment axiom types throw
 `UnsupportedEntailmentTypeException`; known empty classes do not establish arbitrary
 class-expression satisfiability.
+
+### Datatype support matrix
+
+The declared reasoning subset follows the
+[OWL 2 RL datatype and restriction grammar](https://www.w3.org/TR/owl2-profiles/#OWL_2_RL)
+and [OWL datatype value spaces](https://www.w3.org/TR/owl2-syntax/#Datatype_Maps).
+Value equality, proven inequality, and undecided comparisons are separate outcomes;
+failure to prove equality never establishes inequality. `L.equals`/`hashCode`,
+OWLAPI literal objects, and returned property-value sets retain structural identity.
+`hasValue` can infer another lexical representation; it does not replace the original.
+
+| Datatype / construct | Implemented behavior and limits | Regression evidence |
+| --- | --- | --- |
+| `xsd:decimal`, `integer`, `long`, `int`, `short`, `byte`, signed integer restrictions and four unsigned types | Exact numeric comparison across this family, integer bounds, lexical rejection and value-based subtype membership; decimal exponents are rejected. | `LiteralValuesTest`, `DatatypeRuleTest`, `DatatypeConformanceIT`, existing range tests |
+| `xsd:float`, `xsd:double` | Separate value spaces from each other and decimal; finite values, infinities and NaN; positive and negative zero are distinct OWL values. | Floating-point identity unit tests and functional-property integration cases |
+| `xsd:boolean` | `true`/`1` and `false`/`0` denote the same respective values. | Literal comparison and functional-property cases |
+| `xsd:string`, `normalizedString`, `token`, `language`, `Name`, `NCName`, `NMTOKEN` | XML whitespace facets, name/language lexical checks, shared string values and subtype membership; string content remains case sensitive. | Literal tests, token/string functional comparison |
+| `rdf:langString`, `rdf:PlainLiteral` | Case-insensitive, syntactically well-formed BCP 47 tags; distinct languages stay distinct; empty-language PlainLiteral maps to a string. Language registry validity and tag aliases are not resolved. | Language unit cases, language-tag functional/key cases |
+| `xsd:dateTime`, `dateTimeStamp` | JDK XML Gregorian parsing/validation, timezone-normalized equality and required timezone for timestamps; an indeterminate comparison involving an absent timezone is not inequality. Full temporal edge coverage remains in the roadmap. | Date/time units, functional properties, existing invalid-date tests |
+| `xsd:hexBinary`, `base64Binary` | Lexical validation and byte equality within each datatype, including base64 padding checks; the two value spaces remain disjoint. | Literal tests and functional-property integration cases |
+| `xsd:anyURI` | Whitespace collapse and string identity within the URI value space; no network lookup or URI equivalence normalization. | Literal value-space tests |
+| `rdf:XMLLiteral` | Well-balanced XML fragments are compared using exclusive XML canonicalization with comments and an empty inclusive prefix list; attribute order, empty-element spelling and CDATA normalize, while comments, content whitespace, namespace identity and prefix spelling remain significant. External entities/DTDs and XML declarations inside a fragment are rejected. | XML units, negative assertions, functional properties, keys, and serialization/entailment tests |
+| Functional/disjoint data properties, negative assertions, data `hasValue` and its schema rule, data keys | Use value equality or proven inequality as appropriate; distinct lexical forms alone cannot cause a functional conflict. | Isolated rule cases and public reasoner tests |
+| Data ranges, `allValuesFrom`, `someValuesFrom`, intersections | Check required membership or infer proved membership in supported named types and nested intersections; inferred memberships can feed existential and cardinality rules. | Membership unit matrix, range/universal tests, existential and qualified-intersection integration cases |
+| Data maximum cardinality zero/one | Unqualified restrictions count all values; qualified restrictions retain their filler and count only proved members; maximum one rejects proved distinct values. | Isolated rules, converter round trips, public reasoner tests |
+| Unknown/custom datatypes and datatype definitions | Definitions are not expanded; identical literal terms can match, but different unknown terms do not establish inequality or membership in known types. Required membership supplied by an asserted range remains an assumption, not lexical validation. | Unknown-value and custom-definition boundary tests |
+| Facet restrictions, data unions/complements/enumerations, cardinalities above one | Outside this supported RL reasoning subset; representations can round-trip, but their datatype constraints are not evaluated. `owl:real`/`owl:rational` likewise have no value evaluator. Basic `xsd:date`/`time` parsing is an extension, not a claim of full temporal conformance. | Unsupported-range integration cases and existing converter tests |
+
+XML canonicalization uses standard JDK XML DSig APIs, with no added Maven dependency.
+See the [RDF XML literal representation guidance](https://www.w3.org/TR/2004/REC-rdf-concepts-20040210/#section-XMLLiteral)
+for canonical comparison of noncanonical internal representations.
+These checks apply to OWL reasoning; they do not change SWRL built-in arithmetic or
+comparison contracts. `isConsistent() == true` means no supported rule detected a
+contradiction; it does not certify constraints the matrix marks unsupported.
+Rule selection applies to the interactive engine; the public reasoner accessor
+continues to use its independent default rule set.
 
 Duration arithmetic uses signed months or seconds, finite numeric scaling factors,
 XPath month rounding, and explicit zero-divisor errors. Fractional seconds are
@@ -191,6 +228,38 @@ convert months to a fixed number of elapsed days. Timezone-free date/time values
 retain the historical JVM-default-timezone interpretation.
 
 ## Last validation
+
+### Core datatype validation
+
+Verified **2026-11-26**, JDK 17 / Maven 3.9.14, with
+`mvn -o -B -f swrlapi-project/pom.xml -Pcore,static-analysis clean verify`:
+**1,033 tests passed** (209 library unit tests, 126 engine unit/rule tests and
+698 integration tests), with zero failures, errors or skips. SpotBugs reported
+zero findings, analyzer errors and missing classes in all three core production
+modules. Full log: `/tmp/swrlapi-datatype-core.log`.
+
+The new regressions reproduced seven isolated-rule failures and nine public-reasoner
+failures before implementation (`/tmp/swrlapi-datatype-before.log`; that diagnostic
+run deliberately continued after failures). The passing cases cover value equality,
+proved inequality, unknown values, XML canonicalization, restrictions, rule selection,
+imports, equality propagation, retractions and serialization. Two additional legacy
+qualified-cardinality cases were subsequently added to the isolated-rule suite;
+all 43 final focused cases passed with no failures, errors or skips
+(`/tmp/swrlapi-datatype-isolated-final.log`).
+Production sources did not change after the full gate.
+
+Before/after `javap -protected -s` output is identical for all **454 SWRLAPI classes**.
+All existing Drools signatures and descriptors are retained; the engine adds the
+internal qualified-cardinality fact and two value-operation helpers used by DRL.
+API comparison evidence is in `/tmp/swrlapi-datatype-api.diff` and
+`/tmp/swrlapi-drools-engine-datatype-api.diff`.
+
+Protégé remains clean at `7c6d34f921cd33affa7aa075e1e28b10236d3648`.
+This datatype validation used the core profile only; it neither rebuilt nor
+retested the plugin/host. The earlier plugin artifact and GUI evidence below
+therefore predate the datatype changes.
+
+### Previous combined host and plugin validation
 
 Verified **2026-11-26**, JDK 17 and Maven 3.9.14: **BUILD SUCCESS** for the combined
 unmodified Protégé host and `-Pfull,static-analysis clean verify` reactor. The host
@@ -217,7 +286,7 @@ nullness type checking remains separate roadmap work.
 
 The packaged OSGi and graphical checks use the exact plugin from this build:
 SHA-256 `412b743076f97118f6c810b518a0b4015787583b5e857f3097088aa8ea2c92f1`.
-Its embedded library and engine jars match the current reactor producers
+Its embedded library and engine jars match the producers from that validation
 byte-for-byte. The actual host Guava 18.0 and OWLAPI 5.5.1 bundle jars match their
 original Maven artifacts byte-for-byte; the OWLAPI jar embeds Jackson 2.16.1.
 No upgraded wrapper or dependency jar is substituted into the host distribution.

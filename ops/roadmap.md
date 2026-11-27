@@ -3,21 +3,16 @@
 Ordered backlog for the OWLAPI 5 migration. Remove completed items and keep evidence
 and operating instructions in [runbook.md](runbook.md).
 
-1. **Datatype conformance.** Finish value-based equality across the older
-   data-property rules (functional properties, negative assertions, disjointness,
-   and restrictions), XML literal canonical value equivalence, and the supported
-   datatype boundary. Document handling of custom definitions and facet restrictions,
-   including constructs outside OWL 2 RL.
-   Completion: positive, negative, cross-datatype, and rule-selection tests through
-   both isolated rules and the public reasoner; publish a precise support matrix.
-
-2. **Broader OWL 2 RL conformance.** Extend the isolated rule matrix and public API
+1. **Broader OWL 2 RL conformance.** Extend the isolated rule matrix and public API
    tests, including combinations of chains, keys, equality, imports, retractions,
    and datatype constraints. Audit unimplemented conversions and distinguish known
    empty-class detection from general satisfiability. Completion: a documented
    entailment/satisfiability support matrix and targeted regressions for each claim.
+   Use the runbook's datatype support matrix as the baseline; evaluate whether to
+   extend it to custom datatype definitions and facet constraints before claiming
+   support for those constructs.
 
-3. **Drools upgrade assessment.** Evaluate a separate migration from the currently
+2. **Drools upgrade assessment.** Evaluate a separate migration from the currently
    pinned 7.74.1.Final to Apache KIE / Drools 10.2.0 (latest verified 2026-11-26).
    **Java 17 minimum:** Drools 10 requires Java 17+, raising the library's current
    Java 11 baseline; assess downstream compatibility and update build, runtime,
@@ -33,13 +28,13 @@ and operating instructions in [runbook.md](runbook.md).
    the same semantic regression suite, and a measured upgrade decision. Do not fold
    this into the OWLAPI port or streams refactor.
 
-4. **Temporal edge cases and legacy APIs.** Extend coverage for non-finite duration
+3. **Temporal edge cases and legacy APIs.** Extend coverage for non-finite duration
    scaling factors, extreme ranges, timezone-free values, and daylight-saving
    transitions. Assess replacement of Axis date/time/duration internals and their
    legacy precision/equality behavior. Completion: explicit contracts and tests
    before changing public representations or comparison behavior.
 
-5. **Repeatable validation and release readiness.** Add CI coverage for the supported
+4. **Repeatable validation and release readiness.** Add CI coverage for the supported
    JDKs, timezone variants, and the core/static-analysis profiles; retain test reports.
    Promote the reconciled dependency fixes from `protege-6` to the appropriate
    default/release branches and verify GitHub refreshes the parent dependency alerts.
@@ -51,7 +46,7 @@ and operating instructions in [runbook.md](runbook.md).
    artifact. Completion: release builds on the
    agreed branches and an explicit compatibility statement for the released host.
 
-6. **Checker Framework nullness coverage.** Replace the disabled Checker Framework
+5. **Checker Framework nullness coverage.** Replace the disabled Checker Framework
    1.9.13 / JDK 8 setup with a supported checker on the supported build JDKs.
    Audit annotations and nullness contracts across public SWRLAPI APIs and their
    implementations, including OWLAPI/Drools boundaries, Optional values, collections,
@@ -61,7 +56,7 @@ and operating instructions in [runbook.md](runbook.md).
    production sources, and regression checks for null-contract defects. Keep this
    distinct from SpotBugs and preserve public API compatibility.
 
-7. **README and GitHub documentation updates.** Update the sibling repository
+6. **README and GitHub documentation updates.** Update the sibling repository
    READMEs and GitHub documentation/wiki for the OWLAPI 5 and Protégé 6 baseline,
    supported build and test commands, and third-party built-in registration.
    Document the extension-point namespace, factory implementation and lifecycle,
@@ -69,7 +64,7 @@ and operating instructions in [runbook.md](runbook.md).
    contributor example. Completion: consistent links and instructions across the
    repositories, with the registration example built and exercised in Protégé.
 
-8. **Notifications to Protégé developers.** Collect host issues and compatibility
+7. **Notifications to Protégé developers.** Collect host issues and compatibility
    requests worth communicating, with reproduction steps, affected versions,
    observed impact, and the smallest proposed correction. Current unsent notification:
    on macOS with JDK 17, unmodified `6.0.0-alpha-1` logs an `IllegalAccessException`
