@@ -23,18 +23,13 @@ and operating instructions in [runbook.md](runbook.md).
 3. **SWRLTab / Protégé plugin migration.** Extend graphical regression coverage to
    rule editing, ontology switching, and listener lifecycle on
    `protege6/release-6.0.0-alpha-1`.
+   Complete the graphical contributed-query result check (`contributed:answer`
+   returns `42`): packaged execution passes, but native UI automation did not
+   reliably activate the query controls during the latest smoke test.
    Upgrade the alpha host's Guava 18 and the Jackson 2.16.1 jars embedded in
    OWLAPI 5.5.1's OSGi bundle, rebuilding affected host imports and validating the
    assembled distribution. Maven dependency management does not update nested jars.
-   **Third-party built-in library registration:** repair discovery because the
-   loader requests an undeclared
-   `SWRLBuiltInLibraryFactoryPlugin` extension point in the host's namespace; define
-   the owning namespace and test discovery and execution of an actual contributed
-   library, as well as startup with no contributed libraries. Implement the factory
-   initialization stub: it currently sets its library field to null and immediately
-   dereferences it, producing two high-confidence SpotBugs findings. Resolve the
-   exported factory API's references to private bundle packages when validating
-   third-party contributions. Check the macOS
+   Check the macOS
    platform-independent launcher's JDK 17 Aqua look-and-feel access error.
    Port the standalone SWRLTab application separately, then validate clean-checkout
    packaging and release metadata for Protégé 6. Completion: reproducible plugin
@@ -77,3 +72,11 @@ and operating instructions in [runbook.md](runbook.md).
    Completion: a reproducible Maven/CI nullness gate, meaningful coverage of core
    production sources, and regression checks for null-contract defects. Keep this
    distinct from SpotBugs and preserve public API compatibility.
+
+9. **README and GitHub documentation updates.** Update the sibling repository
+   READMEs and GitHub documentation/wiki for the OWLAPI 5 and Protégé 6 baseline,
+   supported build and test commands, and third-party built-in registration.
+   Document the extension-point namespace, factory implementation and lifecycle,
+   OSGi imports and shared API identity, collision/error behavior, and a working
+   contributor example. Completion: consistent links and instructions across the
+   repositories, with the registration example built and exercised in Protégé.

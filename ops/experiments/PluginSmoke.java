@@ -18,8 +18,8 @@ import java.util.jar.JarFile;
 /** Runs the packaged plugin in an isolated Felix framework with the built host bundles. */
 public class PluginSmoke {
   public static void main(String[] args) throws Exception {
-    if (args.length < 2 || args.length > 3)
-      throw new IllegalArgumentException("Usage: PluginSmoke <Protege directory> <plugin jar> [UI fixture output]");
+    if (args.length < 2 || args.length > 4)
+      throw new IllegalArgumentException("Usage: PluginSmoke <Protege directory> <plugin jar> [UI fixture output] [contributor jar]");
     assertBundleContents(Path.of(args[1]));
     System.setProperty("java.awt.headless", "true");
     Path storage = Files.createTempDirectory("swrlapi-osgi-");
@@ -67,20 +67,51 @@ public class PluginSmoke {
       System.out.println("Resolved and started " + plugin.getSymbolicName() + " " + plugin.getVersion());
       plugin.loadClass("org.swrltab.ui.SWRLTab");
       plugin.loadClass("org.swrltab.ui.SQWRLTab");
+      startRegistry(framework, plugin);
+      Object loader = plugin.loadClass("org.swrltab.core.SWRLBuiltInLibraryFactoryLoader").getConstructor().newInstance();
+      if (!((java.util.Set<?>)call(loader, "getPlugins", new Class<?>[0])).isEmpty())
+        throw new AssertionError("Expected no contributed libraries before installing fixture");
+      if (args.length == 4) {
+        Bundle contributor = framework.getBundleContext().installBundle(Path.of(args[3]).toUri().toString());
+        contributor.start();
+        if (contributor.getState() != Bundle.ACTIVE)
+          throw new AssertionError("Contributor is not ACTIVE");
+        if (contributor.loadClass("org.swrlapi.builtins.SWRLBuiltInLibrary")
+          != plugin.loadClass("org.swrlapi.builtins.SWRLBuiltInLibrary"))
+          throw new AssertionError("Contributor and engine have different library API classes");
+        if (((java.util.Set<?>)call(loader, "getPlugins", new Class<?>[0])).size() != 1)
+          throw new AssertionError("Expected exactly one registered contribution");
+      }
       Class<?> factory = plugin.loadClass("org.swrlapi.factory.SWRLAPIFactory");
       Thread.currentThread().setContextClassLoader(factory.getClassLoader());
       Class<?> owlManager = plugin.loadClass("org.semanticweb.owlapi.apibinding.OWLManager");
       Object manager = owlManager.getMethod("createOWLOntologyManager").invoke(null);
       String turtle = "@prefix : <urn:swrlapi:smoke#> . "
         + "@prefix owl: <http://www.w3.org/2002/07/owl#> . "
-        + "<urn:swrlapi:smoke> a owl:Ontology . :Person a owl:Class . :Adult a owl:Class . "
+        + "<urn:swrlapi:smoke> a owl:Ontology . :Person a owl:Class . :Adult a owl:Class . :ContributedAdult a owl:Class . "
         + ":alice a owl:NamedIndividual, :Person .";
       Object ontology = call(manager, "loadOntologyFromOntologyDocument", new Class<?>[]{InputStream.class},
         new ByteArrayInputStream(turtle.getBytes(StandardCharsets.UTF_8)));
       Object resolver = factory.getMethod("createIRIResolver", String.class).invoke(null, "urn:swrlapi:smoke#");
-      Object engine = factory.getMethod("createSQWRLQueryEngine",
+      Object owner = plugin.loadClass("org.swrltab.core.SWRLTabEngineFactory").getConstructor().newInstance();
+      Object engine = call(owner, "createSQWRLQueryEngine", new Class<?>[]{
         plugin.loadClass("org.semanticweb.owlapi.model.OWLOntology"),
-        plugin.loadClass("org.swrlapi.core.IRIResolver")).invoke(null, ontology, resolver);
+        plugin.loadClass("org.swrlapi.core.IRIResolver")}, ontology, resolver);
+      if (args.length == 4) {
+        Object answer = call(engine, "runSQWRLQuery", new Class<?>[]{String.class, String.class},
+          "contributedAnswer", "contributed:answer(?value) -> sqwrl:select(?value)");
+        if (!Integer.valueOf(1).equals(call(answer, "getNumberOfRows", new Class<?>[0]))
+          || !Boolean.TRUE.equals(call(answer, "next", new Class<?>[0])))
+          throw new AssertionError("Contributed query did not return exactly one row");
+        Object value = call(answer, "getLiteral", new Class<?>[]{int.class}, 0);
+        if (!BigInteger.valueOf(42).equals(call(value, "getInteger", new Class<?>[0])))
+          throw new AssertionError("Wrong contributed answer");
+        Object negative = call(engine, "runSQWRLQuery", new Class<?>[]{String.class, String.class},
+          "contributedNegative", "contributed:answer(41) -> sqwrl:select(41)");
+        if (!Integer.valueOf(0).equals(call(negative, "getNumberOfRows", new Class<?>[0])))
+          throw new AssertionError("Contributed negative control unexpectedly matched");
+        System.out.println("PASS: actual extension registry discovers contributor; shared API identity; contributed answer = 42; negative control empty");
+      }
       Object result = call(engine, "runSQWRLQuery", new Class<?>[]{String.class, String.class},
         "osgiSmoke", "swrlb:add(?sum, 2, 3) -> sqwrl:select(?sum)");
       if (!Integer.valueOf(1).equals(call(result, "getNumberOfRows", new Class<?>[0])))
@@ -102,8 +133,11 @@ public class PluginSmoke {
         throw new AssertionError("Missing asserted Person control");
       call(engine, "createSWRLRule", new Class<?>[]{String.class, String.class},
         "personToAdult", "Person(?p) -> Adult(?p)");
-      assertRuleRendering(plugin, ontology);
-      if (args.length == 3) {
+      if (args.length == 4)
+        call(engine, "createSWRLRule", new Class<?>[]{String.class, String.class},
+          "contributedRule", "Person(?p) ^ contributed:answer(42) -> ContributedAdult(?p)");
+      assertRuleRendering(plugin, ontology, args.length == 4);
+      if (args.length >= 3) {
         Class<?> iri = plugin.loadClass("org.semanticweb.owlapi.model.IRI");
         Object destination = iri.getMethod("create", String.class).invoke(null, Path.of(args[2]).toUri().toString());
         call(manager, "saveOntology", new Class<?>[]{plugin.loadClass("org.semanticweb.owlapi.model.OWLOntology"), iri},
@@ -118,6 +152,20 @@ public class PluginSmoke {
       Object individual = call(after, "getNamedIndividual", new Class<?>[]{int.class}, 0);
       if (!"urn:swrlapi:smoke#alice".equals(call(individual, "getIRI", new Class<?>[0]).toString()))
         throw new AssertionError("Rule inferred the wrong individual");
+      Object contributed = call(engine, "runSQWRLQuery", new Class<?>[]{String.class, String.class},
+        "contributedPeople", "ContributedAdult(?p) -> sqwrl:select(?p)");
+      int expected = args.length == 4 ? 1 : 0;
+      if (!Integer.valueOf(expected).equals(call(contributed, "getNumberOfRows", new Class<?>[0])))
+        throw new AssertionError("Wrong contributed inference result count");
+      if (expected == 1) {
+        if (!Boolean.TRUE.equals(call(contributed, "next", new Class<?>[0])))
+          throw new AssertionError("Missing contributed inference row");
+        Object person = call(contributed, "getNamedIndividual", new Class<?>[]{int.class}, 0);
+        if (!"urn:swrlapi:smoke#alice".equals(call(person, "getIRI", new Class<?>[0]).toString()))
+          throw new AssertionError("Contributed rule inferred the wrong individual");
+        System.out.println("PASS: contributed rule independently infers ContributedAdult(alice)");
+      }
+      call(owner, "close", new Class<?>[0]);
       System.out.println("PASS: packaged SWRLTab resolves; both tab classes load; rule rendering preserves prefixes and variables; SQWRL 2 + 3 = 5; rule infers Adult(alice)");
     } finally {
       Thread.currentThread().setContextClassLoader(originalLoader);
@@ -126,6 +174,25 @@ public class PluginSmoke {
       // Keep isolated framework storage available for diagnosis; it never uses ~/.Protege.
       System.out.println("Felix diagnostics: " + storage);
     }
+  }
+
+  private static void startRegistry(Framework framework, Bundle plugin) throws Exception {
+    for (String name : new String[]{"org.protege.common", "org.eclipse.equinox.common", "org.eclipse.equinox.supplement", "org.eclipse.equinox.registry"}) {
+      Bundle match = null;
+      for (Bundle bundle : framework.getBundleContext().getBundles())
+        if (name.equals(bundle.getSymbolicName())) match = bundle;
+      if (match == null) throw new AssertionError("Missing registry dependency " + name);
+      match.start();
+    }
+    // Bootstrap only the host registry utility; starting the editor activator would launch the GUI.
+    Class<?> utilities = plugin.loadClass("org.protege.editor.core.plugin.PluginUtilities");
+    Object instance = utilities.getMethod("getInstance").invoke(null);
+    utilities.getMethod("initialise", org.osgi.framework.BundleContext.class).invoke(instance, framework.getBundleContext());
+    Object registry = call(instance, "getExtensionRegistry", new Class<?>[0]);
+    if (registry == null) throw new AssertionError("Equinox extension registry did not start");
+    Object point = call(registry, "getExtensionPoint", new Class<?>[]{String.class},
+      "swrltab-plugin.SWRLBuiltInLibraryFactoryPlugin");
+    if (point == null) throw new AssertionError("SWRLTab did not declare its extension point");
   }
 
   private static void assertBundleContents(Path plugin) throws Exception {
@@ -142,7 +209,7 @@ public class PluginSmoke {
     if (engineJars != 2) throw new AssertionError("Missing embedded SWRLAPI/engine jars");
   }
 
-  private static void assertRuleRendering(Bundle plugin, Object ontology) throws Exception {
+  private static void assertRuleRendering(Bundle plugin, Object ontology, boolean contributed) throws Exception {
     Class<?> finderType = plugin.loadClass("org.protege.editor.owl.model.find.OWLEntityFinder");
     Class<?> entityType = plugin.loadClass("org.protege.editor.owl.ui.renderer.OWLModelManagerEntityRenderer");
     Class<?> modelType = plugin.loadClass("org.protege.editor.owl.model.OWLModelManager");
@@ -171,13 +238,24 @@ public class PluginSmoke {
       .getConstructor(modelType).newInstance(model);
     Object resolver = plugin.loadClass("org.swrltab.core.ProtegeIRIResolver")
       .getConstructor(finderType, entityType, objectType).newInstance(finder, entities, hostRenderer);
-    call(resolver, "updatePrefixes", new Class<?>[]{plugin.loadClass("org.semanticweb.owlapi.model.OWLOntology")}, ontology);
-    int matches = 0;
-    for (Object axiom : (Iterable<?>)call(ontology, "getAxioms", new Class<?>[0])) {
-      String rendering = call(resolver, "render", new Class<?>[]{plugin.loadClass("org.semanticweb.owlapi.model.OWLObject")}, axiom).toString();
-      if (rendering.equals("swrlb:add(?sum, 2, 3) -> sqwrl:select(?sum)")) matches++;
+    Object owner = plugin.loadClass("org.swrltab.core.SWRLTabEngineFactory").getConstructor().newInstance();
+    try {
+      call(owner, "createSWRLRuleEngine", new Class<?>[]{
+        plugin.loadClass("org.semanticweb.owlapi.model.OWLOntology"),
+        plugin.loadClass("org.swrlapi.core.IRIResolver")}, ontology, resolver);
+      int matches = 0;
+      int contributedMatches = 0;
+      for (Object axiom : (Iterable<?>)call(ontology, "getAxioms", new Class<?>[0])) {
+        String rendering = call(resolver, "render", new Class<?>[]{plugin.loadClass("org.semanticweb.owlapi.model.OWLObject")}, axiom).toString();
+        if (rendering.equals("swrlb:add(?sum, 2, 3) -> sqwrl:select(?sum)")) matches++;
+        if (rendering.equals("contributed:answer(?value) -> sqwrl:select(?value)")) contributedMatches++;
+      }
+      if (matches != 1) throw new AssertionError("Expected exactly one correctly rendered arithmetic query, got " + matches);
+      if (contributedMatches != (contributed ? 1 : 0))
+        throw new AssertionError("Contributed rendering did not use the declared library prefix");
+    } finally {
+      call(owner, "close", new Class<?>[0]);
     }
-    if (matches != 1) throw new AssertionError("Expected exactly one correctly rendered arithmetic query, got " + matches);
   }
 
   private static Object call(Object object, String name, Class<?>[] types, Object... values) throws Exception {
