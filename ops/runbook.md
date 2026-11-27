@@ -124,10 +124,23 @@ strict probe before accepting a zero-finding inventory.
 
 The shared GitHub Actions workflow in `swrlapi-project` runs the strict core and
 SpotBugs gate on JDK 17 in UTC and America/Los_Angeles, checks the enforcement probe,
-and retains reports and sibling revisions. Thin workflows in each core repository
+and retains logs, reports and sibling revisions for 14 days. Thin workflows in each core repository
 call it, overlaying the triggering source revision onto sibling `protege-6` checkouts.
-Publishing these workflow files and configuring required branch checks are separate
-from local validation; no remote CI result is implied by a local passing build.
+The workflows run on pushes and pull requests targeting `protege-6`, and support
+manual dispatch. They use read-only repository permissions and Temurin 17 on
+`ubuntu-latest`. The Maven step allows 35 minutes within a 40-minute job limit;
+the initial successful hosted builds took 16–22 minutes. Maven output is streamed
+to the job and saved in full with `pipefail` preserving its exit status.
+
+Both timezone checks are required on `protege-6` in the project, parent, library,
+Drools engine, example and integration-test repositories. Their names are
+`verify (UTC)` / `verify (America/Los_Angeles)` in the project and
+`verify / verify (UTC)` / `verify / verify (America/Los_Angeles)` in callers.
+The project additionally requires `verify-update-channels`; the plugin repository
+requires `verify-update-channels / verify-update-channels`. Checks are associated
+with GitHub Actions and require an up-to-date branch. Administrator bypass remains
+available; no review requirement or push restriction was added. These hosted gates
+do not replace the local standalone packaging and actual Protégé loading/UI checks.
 
 ## Focused regression checks
 
@@ -548,9 +561,20 @@ Its pre-existing Aqua appearance-menu `IllegalAccessException` remains nonblocki
 and queued for notification; errors explicitly marked as intentional fixture
 initialization failures are the recovery test's negative control.
 
-The CI workflows parse locally and use the verified strict core command; no GitHub
-run or required branch check has been claimed. Publication and remote CI verification
-remain in the release-readiness roadmap item.
+The first hosted core matrices passed on **2026-11-27** in all six repositories:
+[project](https://github.com/protegeproject/swrlapi-project/actions/runs/46000400411),
+[parent](https://github.com/protegeproject/swrlapi-parent/actions/runs/46000442759),
+[library](https://github.com/protegeproject/swrlapi/actions/runs/46000449328),
+[engine](https://github.com/protegeproject/swrlapi-drools-engine/actions/runs/46000455749),
+[example](https://github.com/protegeproject/swrlapi-example/actions/runs/46000462812), and
+[integration tests](https://github.com/protegeproject/swrlapi-integration-tests/actions/runs/46000465080).
+Downloaded reports confirm **1,375 tests per timezone job** (242 library, 181
+engine, 952 integration), zero failures/errors/skips, and three clean SpotBugs
+reports per job. Both timezone properties were verified. Strict Checker compilation
+and its enforcement probe passed. These runs used Temurin 17.0.21 on Ubuntu 26.04.1;
+artifacts include the exact sibling revisions. Required checks were configured only
+after these successful runs were verified. Later documentation, logging and timeout
+changes do not alter the tested production sources.
 
 ### Temporal boundary validation
 
@@ -1044,6 +1068,11 @@ missing host labels, SNAPSHOT publication, relaxed/optional imports, and weakene
 packaged manifests. The current plugin's real manifest passes the same guard.
 The dedicated `Plugin update channels` workflow runs the source guard and its
 regressions for project/plugin pushes and pull requests on `protege-6`.
+Its first [plugin run](https://github.com/protegeproject/swrltab-plugin/actions/runs/46002331974)
+passed all nine channel tests and the real metadata/POM guard; its check is required
+on the plugin branch. This workflow does not build the plugin: packaged-manifest
+and host runtime checks remain separate gates. The protections cover `protege-6`
+and release preparation, not arbitrary edits to the live `master` feed.
 
 Verified live on 2026-11-27: the
 [Protégé 5 registry](https://github.com/protegeproject/autoupdate/blob/master/update-info/5.0.0/plugins.repository)

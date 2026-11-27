@@ -11,7 +11,7 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
     strategy:
       fail-fast: false
       matrix:
@@ -75,7 +75,7 @@ jobs:
             git -C "$repo" log -1 --format='%H %s' >> revisions.txt
           done
       - name: Strict nullness, tests, and SpotBugs
-        timeout-minutes: 20
+        timeout-minutes: 35
         shell: bash
         run: |
           set -o pipefail

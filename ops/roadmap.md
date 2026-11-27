@@ -37,8 +37,7 @@ and operating instructions in [runbook.md](runbook.md).
    a separately versioned API change. Completion: an agreed migration scope, adapter
    and serialization tests, and compatibility evidence for existing consumers.
 
-4. **Repeatable validation and release readiness.** Publish the shared CI workflows,
-   verify remote runs and configure required branch checks. Agree the supported
+4. **Repeatable validation and release readiness.** Agree the supported
    build/runtime JDK matrix and extend coverage beyond the documented JDK 17 gate
    where needed; use the strict nullness and static-analysis gates in release builds.
    Promote the reconciled dependency fixes from `protege-6` to the appropriate
