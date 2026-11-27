@@ -85,7 +85,8 @@ Explicit user instructions and agreed scope take precedence over these defaults.
   lexical form, datatype, language, identity, and precision where relevant. Resolve
   disagreements against the specification and intended API, not by changing fixtures
   or stored data to accommodate the wrong implementation.
-- Run the configured format/static-analysis gates and relevant tests. Preserve
+- Run configured formatting gates, the strict `nullness` and `static-analysis`
+  profiles, and relevant tests. Preserve
   existing source formatting and line endings. SpotBugs is not a replacement for
   nullness checking. Do not claim a formatter or CI gate exists until it is configured.
 - Reuse existing valid evidence when the tested inputs are unchanged; rerun checks

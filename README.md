@@ -18,15 +18,15 @@ for repo in swrlapi-parent swrlapi-project swrlapi swrlapi-drools-engine \
   swrlapi-example swrlapi-integration-tests; do
   git clone --branch protege-6 "https://github.com/protegeproject/$repo.git"
 done
-mvn -B -f swrlapi-project/pom.xml -Pcore,static-analysis clean verify
+mvn -B -f swrlapi-project/pom.xml -Pcore,nullness,static-analysis clean verify
 ```
 
-`verify` runs unit and integration tests and SpotBugs. `test` alone omits the
+This gate runs unit and integration tests, strict Checker Framework nullness
+checking of production sources, and SpotBugs. `test` alone omits the
 Failsafe integration suite. The reactor builds the local parent and producers
 before consumers, including uncommitted source edits; a separate `install` is
 unnecessary. Add `-o` only when all required dependencies are already cached.
-Logs and reports are under each module's `target/` directory. SpotBugs is not
-Checker Framework nullness checking; no formatter gate is configured.
+Logs and reports are under each module's `target/` directory. The nullness and SpotBugs checks are separate; no formatter gate is configured.
 
 The packaged example prints `x: 4` without needing an ontology file:
 
@@ -38,10 +38,10 @@ java -jar swrlapi-example/target/swrlapi-example-2.1.5-SNAPSHOT-jar-with-depende
 
 | Profiles | Modules and prerequisites |
 | --- | --- |
-| `core,static-analysis` | Parent, library, engine, example and integration tests; JDK 17 and Maven 3.9. |
-| `core,standalone,static-analysis` | Core plus the standalone Swing application; also clone `swrltab` on `protege-6`. |
-| `core,protege-plugin,static-analysis` | Core plus the Protégé plugin; also clone `swrltab-plugin` and provide the matching host APIs. |
-| `full,static-analysis` | All modules; clone both UI repositories and follow the host reactor instructions. |
+| `core,nullness,static-analysis` | Parent, library, engine, example and integration tests; JDK 17 and Maven 3.9. |
+| `core,standalone,nullness,static-analysis` | Core plus the standalone Swing application; also clone `swrltab` on `protege-6`. |
+| `core,protege-plugin,nullness,static-analysis` | Core plus the Protégé plugin; also clone `swrltab-plugin` and provide the matching host APIs. |
+| `full,nullness,static-analysis` | All modules; clone both UI repositories and follow the host reactor instructions. |
 
 `full` is the aggregator's default profile; select `core` explicitly for an
 independent library build. The standalone app has no Protégé dependency. The plugin

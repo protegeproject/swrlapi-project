@@ -29,14 +29,18 @@ and operating instructions in [runbook.md](runbook.md).
    the same semantic regression suite, and a measured upgrade decision. Do not fold
    this into the OWLAPI port or streams refactor.
 
-3. **Temporal edge cases and legacy APIs.** Extend coverage for non-finite duration
-   scaling factors, extreme ranges, timezone-free values, and daylight-saving
-   transitions. Assess replacement of Axis date/time/duration internals and their
-   legacy precision/equality behavior. Completion: explicit contracts and tests
-   before changing public representations or comparison behavior.
+3. **Legacy temporal API migration.** Decide whether to replace the remaining Axis
+   and `java.util.Date` internals using the [temporal boundary assessment](runbook.md#temporal-behavior-and-legacy-api-boundaries).
+   Agree contracts for arbitrary fractional precision, duration range, partial
+   ordering and implicit timezones before changing wrapper equality or comparison
+   behavior. Preserve public signatures, including Axis-typed helpers, or coordinate
+   a separately versioned API change. Completion: an agreed migration scope, adapter
+   and serialization tests, and compatibility evidence for existing consumers.
 
-4. **Repeatable validation and release readiness.** Add CI coverage for the supported
-   JDKs, timezone variants, and the core/static-analysis profiles; retain test reports.
+4. **Repeatable validation and release readiness.** Publish the shared CI workflows,
+   verify remote runs and configure required branch checks. Agree the supported
+   build/runtime JDK matrix and extend coverage beyond the documented JDK 17 gate
+   where needed; use the strict nullness and static-analysis gates in release builds.
    Promote the reconciled dependency fixes from `protege-6` to the appropriate
    default/release branches and verify GitHub refreshes the parent dependency alerts.
    Keep the unmodified Protégé host baseline in release validation and document
@@ -47,17 +51,7 @@ and operating instructions in [runbook.md](runbook.md).
    artifact. Completion: release builds on the
    agreed branches and an explicit compatibility statement for the released host.
 
-5. **Checker Framework nullness coverage.** Replace the disabled Checker Framework
-   1.9.13 / JDK 8 setup with a supported checker on the supported build JDKs.
-   Audit annotations and nullness contracts across public SWRLAPI APIs and their
-   implementations, including OWLAPI/Drools boundaries, Optional values, collections,
-   and custom built-in arguments. Add precise stubs for dependencies only where
-   necessary; document narrowly scoped suppressions rather than weakening checking.
-   Completion: a reproducible Maven/CI nullness gate, meaningful coverage of core
-   production sources, and regression checks for null-contract defects. Keep this
-   distinct from SpotBugs and preserve public API compatibility.
-
-6. **Notifications to Protégé developers.** Collect host issues and compatibility
+5. **Notifications to Protégé developers.** Collect host issues and compatibility
    requests worth communicating, with reproduction steps, affected versions,
    observed impact, and the smallest proposed correction. Current unsent notification:
    on macOS with JDK 17, unmodified `6.0.0-alpha-1` logs an `IllegalAccessException`

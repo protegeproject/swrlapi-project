@@ -46,7 +46,7 @@ Run from the enclosing workspace directory:
 
 ```sh
 export JAVA_HOME=/Library/Java/JavaVirtualMachines/jdk-17.jdk/Contents/Home
-mvn -o -B -f swrlapi-project/pom.xml -Pfull,static-analysis clean verify
+mvn -o -B -f swrlapi-project/pom.xml -Pfull,nullness,static-analysis clean verify
 ```
 
 Use the appropriate JDK 17 path on other machines. `-o` uses the local Maven cache;
@@ -56,15 +56,78 @@ these same module output directories.
 
 The `core` profile builds the parent, library, Drools engine, example, and integration
 tests. The default `full` profile adds the Protégé plugin and standalone application.
-Use `-Pcore,standalone,static-analysis` for the standalone gate without host APIs,
-or `-Pcore,protege-plugin,static-analysis` for the plugin gate without standalone.
+Use `-Pcore,standalone,nullness,static-analysis` for the standalone gate without host APIs,
+or `-Pcore,protege-plugin,nullness,static-analysis` for the plugin gate without standalone.
 When host sources change, use the combined host reactor below so consumers use
 current producer artifacts. `verify` is required: `test` alone does not run and
 check the Failsafe integration suite.
 
 SpotBugs runs at maximum effort and high confidence, failing the build for findings
-or analyzer errors. The old Checker Framework 1.9.13 / JDK 8 annotation processor is
-disabled. SpotBugs does not replace nullness type checking.
+or analyzer errors. The `nullness` profile separately enforces Checker Framework
+contracts on production sources; both belong in the verification gate. No formatter
+gate is configured.
+
+## Nullness checking
+
+The `nullness` profile uses Checker Framework **4.4.0** and Maven Compiler Plugin
+**3.14.1** on JDK 17+. Java bytecode still targets Java 11. Normal dependencies use
+matching `checker-qual:4.4.0` annotations. The processor is isolated on the annotation
+processor path, with compiler exports confined to forked javac, following the
+[Checker Framework Maven instructions](https://checkerframework.org/manual/#maven).
+The obsolete checker compiler and annotated JDK 8 jars are no longer application
+dependencies. The profile checks all production sources in whichever reactor modules
+are selected, including the core UI, plugin and standalone application in `full`.
+It does not check test sources or Protégé and does not run the separate Optional
+Checker. Dependency implementations remain outside this source check.
+
+Run from the sibling workspace (omit `-o` if dependencies need downloading):
+
+```sh
+export JAVA_HOME=/Library/Java/JavaVirtualMachines/jdk-17.jdk/Contents/Home
+mvn -o -B -f swrlapi-project/pom.xml -Pcore,nullness,static-analysis clean verify \
+  > /tmp/swrlapi-nullness-core.log 2>&1
+python3 swrlapi-project/ops/experiments/check-nullness-profile.py
+```
+
+Check Maven's exit status; nullness contract errors fail the strict build. The probe requires
+a guarded nullable access to compile and an unsafe access to fail with exactly one
+nullable-dereference site. It also checks the permitted null arguments in the JDK
+stubs. It builds temporary fixtures without installing artifacts. The stub path
+assumes this sibling layout; external experiments must pass `-Dchecker.stubs=` with
+an absolute path to `swrlapi-parent/src/main/checker/jdk.astub`.
+
+The three narrow dependency models cover documented nullable arguments in
+`DatatypeFactory.newDuration`, `TransformService.init(TransformParameterSpec)`, and
+`JTabbedPane.addTab`. They do not make SWRLAPI return values nullable. Reviewed
+suppressions are limited to six private `ThreadLocal` fields whose non-null suppliers
+initialize every thread, constructor initialization boundaries, and the manager's
+existing live `Map.keySet` return. The constructor boundaries are in the built-in
+library manager, query, tokenizer, bridge, dialog manager, Drools engine and class
+expression handler, and the plugin's renderer and engine factory. Comments explain
+the initialized state or deferred callback at each site. There are no class-wide
+nullness suppressions or source exclusions. These trusted boundaries remain part
+of code review; the gate is not a proof of arbitrary third-party behavior.
+
+For a non-failing diagnostic inventory, add `nullness-audit` **alongside** `nullness`:
+
+```sh
+mvn -o -B -f swrlapi-project/pom.xml -Pcore,nullness,nullness-audit clean compile \
+  > /tmp/swrlapi-nullness-audit.log 2>&1
+python3 swrlapi-project/ops/experiments/summarize-nullness.py \
+  /tmp/swrlapi-nullness-audit.log --csv /tmp/swrlapi-nullness-findings.csv
+```
+
+Audit mode uses `-Awarns`; its success does not imply zero findings. The summarizer
+requires fresh nonempty compilation in all three core production modules and a
+successful complete log, deduplicates repeated diagnostic sites, and runs the
+strict probe before accepting a zero-finding inventory.
+
+The shared GitHub Actions workflow in `swrlapi-project` runs the strict core and
+SpotBugs gate on JDK 17 in UTC and America/Los_Angeles, checks the enforcement probe,
+and retains reports and sibling revisions. Thin workflows in each core repository
+call it, overlaying the triggering source revision onto sibling `protege-6` checkouts.
+Publishing these workflow files and configuring required branch checks are separate
+from local validation; no remote CI result is implied by a local passing build.
 
 ## Focused regression checks
 
@@ -92,6 +155,12 @@ core gate also checks their interactions with the existing datatype and query su
 For timezone regressions, repeat relevant temporal tests with `-Duser.timezone=UTC`
 and `-Duser.timezone=America/Los_Angeles` in separate Maven invocations. Keep the
 same assertions: explicit offsets must represent the same instant in both runs.
+The temporal boundary gate uses
+`-Dtest=TemporalBoundaryTest,DurationArithmeticTest,XSDTimeUtilTest` and
+`-Dit.test=DurationScalingMatrixIT,CalendarArithmeticMatrixIT,TemporalReasoningMatrixIT,TemporalSubtractionMatrixIT,DurationArithmeticIT`,
+with the same sibling reactor and Surefire option above. The matrix cases assert
+their expected counts; errors must reach the arithmetic path rather than fail
+early in the rule parser. Do not mutate the JVM's global timezone inside tests.
 
 ## Evidence and failure triage
 
@@ -302,7 +371,7 @@ OWLAPI literal objects, and returned property-value sets retain structural ident
 | `xsd:boolean` | `true`/`1` and `false`/`0` denote the same respective values. | Literal comparison and functional-property cases |
 | `xsd:string`, `normalizedString`, `token`, `language`, `Name`, `NCName`, `NMTOKEN` | XML whitespace facets, name/language lexical checks, shared string values and subtype membership; string content remains case sensitive. | Literal tests, token/string functional comparison |
 | `rdf:langString`, `rdf:PlainLiteral` | Case-insensitive, syntactically well-formed BCP 47 tags; distinct languages stay distinct; empty-language PlainLiteral maps to a string. Language registry validity and tag aliases are not resolved. | Language unit cases, language-tag functional/key cases |
-| `xsd:dateTime`, `dateTimeStamp` | JDK XML Gregorian parsing/validation, timezone-normalized equality and required timezone for timestamps; an indeterminate comparison involving an absent timezone is not inequality. Full temporal edge coverage remains in the roadmap. | Date/time units, functional properties, existing invalid-date tests |
+| `xsd:dateTime`, `dateTimeStamp` | JDK XML Gregorian parsing/validation, timezone-normalized equality and required timezone for timestamps; an indeterminate comparison involving an absent timezone is not inequality. Explicit DST offsets, absent timezones, fractional precision and large years are covered by the temporal matrix. | Date/time units, functional properties, `TemporalReasoningMatrixIT`, existing invalid-date tests |
 | `xsd:hexBinary`, `base64Binary` | Lexical validation and byte equality within each datatype, including base64 padding checks; the two value spaces remain disjoint. | Literal tests and functional-property integration cases |
 | `xsd:anyURI` | Whitespace collapse and string identity within the URI value space; no network lookup or URI equivalence normalization. | Literal value-space tests |
 | `rdf:XMLLiteral` | Well-balanced XML fragments are compared using exclusive XML canonicalization with comments and an empty inclusive prefix list; attribute order, empty-element spelling and CDATA normalize, while comments, content whitespace, namespace identity and prefix spelling remain significant. External entities/DTDs and XML declarations inside a fragment are rejected. | XML units, negative assertions, functional properties, keys, and serialization/entailment tests |
@@ -321,16 +390,201 @@ contradiction; it does not certify constraints the matrix marks unsupported.
 Rule selection applies to the interactive engine; the public reasoner accessor
 continues to use its independent default rule set.
 
-Duration arithmetic uses signed months or seconds, finite numeric scaling factors,
-XPath month rounding, and explicit zero-divisor errors. Fractional seconds are
-preserved in library parsing and results. Java helpers taking two duration operands
-for multiplication or returning a duration from division are deprecated and reject
-those calls; use singular helper names with a `BigDecimal` factor. Duration ordering
-uses normalized months and then seconds for a total collection order; it does not
-convert months to a fixed number of elapsed days. Timezone-free date/time values
-retain the historical JVM-default-timezone interpretation.
+### Temporal behavior and legacy API boundaries
+
+SWRL duration scaling uses signed months or seconds and XPath month rounding.
+Multiplication by positive/negative zero yields zero; division by either zero,
+NaN factors and multiplication by infinity raise `SWRLBuiltInException` with an
+arithmetic diagnostic. Division by either infinity yields zero, including for a
+zero duration. The rule parser accepts XSD `INF` and `-INF` floating-point literals;
+floating overflow/underflow is handled as infinity/zero before scaling. Finite
+decimal arithmetic retains the existing precision policy. Unrepresentable duration
+results raise errors rather than wrapping integer fields. These boundary expectations
+follow the [XPath duration operations](https://www.w3.org/TR/xpath-functions/).
+
+The ten SWRL date/date-time/time addition and subtraction built-ins use JDK XML
+calendar arithmetic. They preserve the input's explicit offset or absent timezone,
+clip year/month shifts to the destination month's last day, wrap time-only values
+at midnight, and retain fractional seconds in the result literal. An explicit
+`-08:00` is a fixed offset, not a named timezone with daylight-saving rules. Thus
+results are independent of the host's DST transitions. Year-month and day-time
+operations reject operands containing components from the other duration subtype.
+Whole-day shifts use direct calendar calculations because the JDK XML calendar's
+day addition walks through months; only the remaining fraction of a day is passed
+to that addition. Huge time-only shifts are reduced modulo a day, while date/date-time
+results outside the supported range raise errors. The matrix includes ten-thousand-year
+shifts and huge time-only durations, with a per-case timeout guarding against hangs.
+
+Legacy Java conversions and wrappers retain their existing contracts: converting a
+timezone-free date/date-time to `Date` uses the JVM's default timezone; `Date` helpers
+and wrapper equality/order have millisecond precision. Day-time shifts truncate
+submillisecond fractions and check overflow; year-month shifts retain local calendar
+behavior and month-end clipping. Calendar-to-`Date` conversions reject years outside
+the representable millisecond range. Date and date-time wrappers can be safely read
+from threads other than their constructing thread.
+`swrlb:subtractDateTimesYieldingDayTimeDuration` is registered and returns elapsed
+time using these millisecond-based conversions. Its DST matrix distinguishes the
+two occurrences of a repeated local hour by their explicit offsets, tests the spring
+clock change, and covers equal instants and negative differences.
+
+The OWL reasoner has a separate value-space contract: absent timezone comparisons
+can be undecided, never assumed unequal, and XML calendar comparisons retain
+fractional precision and large years beyond `Date`. The temporal reasoning matrix
+checks entailment, functional-property conflicts, negative assertions and recovery
+after removals using that contract in both JVM timezones.
+
+Axis replacement assessment: JDK XML calendars already cover the built-in calendar
+arithmetic path, but replacing Axis throughout is not a drop-in change. Public helpers
+expose Axis duration/time classes; duration fields have integer component limits and
+seconds ultimately use `double`. Date/date-time wrapper equality remains millisecond
+based, and duration ordering deliberately compares normalized months and then seconds
+as a total collection order. It does not equate months with a fixed number of days
+or implement XML Schema's partial duration ordering. Retain those contracts until a
+separate migration agrees precision, ordering, implicit timezone and adapter behavior.
+The deprecated two-duration multiply/divide Java helpers still reject calls; use
+the singular helpers with a `BigDecimal` factor. Remaining migration decisions are
+in the [roadmap](roadmap.md).
 
 ## Last validation
+
+### Nullness baseline inventory
+
+Verified **2026-11-27**, JDK 17 / Maven 3.9.14, using the audit command above:
+**429 production source files compiled**, with **188 contract findings in 54 files**.
+This is a diagnostic inventory, not 188 confirmed runtime defects and not a passing
+nullness gate. The unsafe/guarded profile probe passed both expectations.
+
+| Module | Production sources | Contract findings | Annotation placement | Primitive annotations |
+| --- | ---: | ---: | ---: | ---: |
+| SWRLAPI | 277 | 160 | 1,781 | 8 |
+| Drools engine | 151 | 28 | 1,433 | 0 |
+| Example | 1 | 0 | 0 | 0 |
+| Total | 429 | 188 | 3,214 | 8 |
+
+The raw log contains 6,624 checker diagnostics; removing repeated identical sites
+leaves 3,410. Contract categories are: nullable dereference 83; incompatible
+argument 35; override parameter 25; method receiver 11; return 9; assignment 9;
+generic type argument 7; generic inference 5; field initialization 2; nullable
+unboxing 1; nullable iteration 1. Placement notices are reported separately and
+were not suppressed to make the inventory look cleaner.
+
+The subsequent strict-checking cleanup resolved these findings and the annotation
+placement notices. Repeated map lookups now use checked local values or explicit
+invariant guards; nullable overrides, visitor returns, lazy fields and UI lifecycle
+state have accurate annotations. Concrete defects fixed include missing engine
+version metadata, built-in invocation context left behind after exceptions,
+nullable reflection returns, per-thread temporal initialization, and SQWRL column
+lookup through an original name after a display alias is assigned.
+
+Baseline logs: `/tmp/swrlapi-nullness-audit.log` and
+`/tmp/swrlapi-nullness-findings.csv`. The original audit had no production behavior
+fixes; the strict gate and consumer validation below cover the subsequent fixes.
+
+### Strict nullness and consumer validation
+
+Verified **2026-11-27**, JDK 17 / Maven 3.9.14. The full
+`-Pfull,nullness,static-analysis clean verify` gate passed with **1,397 tests**, no
+failures, errors or skips. A final clean rebuild after import/line-wrapping cleanup
+and two additional boundary tests used the same profiles with
+`-Duser.timezone=UTC -Dit.test=EngineVersionNullnessIT,PackagedApplicationIT`:
+all unit suites and those two integration tests passed (**448 cases**). This second
+run is focused integration validation, not a second full integration suite.
+Together the reports contain **1,399 distinct passing cases**:
+
+| Suite | Full gate | Final focused gate |
+| --- | ---: | ---: |
+| Library unit/contract tests | 241 | 242 |
+| Drools engine unit/rule tests | 180 | 181 |
+| Plugin unit/contract tests | 23 | 23 |
+| Standalone packaged application | 1 | 1 |
+| Public API/query integration tests | 952 | 1 |
+| Total | 1,397 | 448 |
+
+All **438 production source files** (277 library, 151 engine, seven plugin, two
+standalone, one example) compile under strict checking without Checker diagnostics.
+SpotBugs reports zero findings, analyzer errors or missing classes across all five
+production modules. The guarded/unsafe checker probe passes, including the three
+JDK dependency models; the clean-log summarizer reports zero core findings after
+requiring fresh compilation and the active profile. The original baseline remains
+reproducible from its saved log. No formatter gate is configured.
+
+The thirteen new cases cover built-in failure/reset cleanup, null reflection
+results, unreadable library directories, XML/JDBC temporal helpers used on another
+thread, original/display column names, absent engine manifest metadata, public
+query execution/version access, and nullable equals/visitor behavior across custom
+argument kinds. Existing suites cover the map-lookup, reasoner lifecycle, ontology
+change, collection, and plugin disposal paths. The normal dependency baseline now
+uses `checker-qual:4.4.0`; packaged applications contain no checker compiler or old
+annotated JDK jar.
+
+Public/protected signatures and descriptors are unchanged across **319 library and
+156 engine classes**. This comparison excludes annotation metadata: nullable
+Object/visitor contracts and annotation placement were deliberately corrected.
+All **551 source/resource/POM hashes** captured for the final build match after
+validation. Logs and reports: `/tmp/swrlapi-nullness-full.log`,
+`/tmp/swrlapi-nullness-full-reports`, `/tmp/swrlapi-nullness-final.log`,
+`/tmp/swrlapi-nullness-clean-summary.log`, and
+`/tmp/swrlapi-nullness-strict-probe.log`.
+
+The packaged plugin SHA-256 is
+`7492fdd04dab3b40dcfaf2062e7690cc54514e1fcce008e0a87ed4431b57a5d4`.
+Its embedded library/engine jars match the final producers byte-for-byte, and its
+only Checker jar is `checker-qual-4.4.0.jar`. The inventory and packaged OSGi checks
+pass on the unchanged Protégé alpha-1 distribution: both tabs load, rule/variable
+rendering is correct, arithmetic returns `5`, the contributed query returns `42`
+with its negative control, and rules independently infer `Adult(alice)` and
+`ContributedAdult(alice)`. Evidence: `/tmp/swrlapi-nullness-host-inventory.log` and
+`/tmp/swrlapi-nullness-plugin-smoke.log`.
+
+The graphical smoke test also passes with the same artifact: contributed/arithmetic
+queries (`42`, `5`, then edited `7` and `9`), rule editing/import/run/export,
+`Adult(alice)` inference, ontology switching, listener/factory cleanup, deliberate
+initialization failure and recovery, and tab close/reopen. The initial sandboxed
+launcher aborted before running the fixture; rerunning with desktop access passed.
+Evidence: `/tmp/swrlapi-nullness-graphical-desktop.log` and
+`/var/folders/c1/gtt0h33d00z7yg3w_fkfyhl40000gr/T/swrlapi-graphical-z0p0cjgm`.
+The host checkout is still clean at `7c6d34f921cd33affa7aa075e1e28b10236d3648`.
+Its pre-existing Aqua appearance-menu `IllegalAccessException` remains nonblocking
+and queued for notification; errors explicitly marked as intentional fixture
+initialization failures are the recovery test's negative control.
+
+The CI workflows parse locally and use the verified strict core command; no GitHub
+run or required branch check has been claimed. Publication and remote CI verification
+remain in the release-readiness roadmap item.
+
+### Temporal boundary validation
+
+The final sibling reactor passed with
+`mvn -o -B -f swrlapi-project/pom.xml -Pcore,static-analysis -Duser.timezone=America/Los_Angeles clean verify`:
+**BUILD SUCCESS**, **1,362 tests passed** (231 library unit tests, 180 engine
+unit/rule tests and 951 integration tests), with zero failures, errors or skips.
+SpotBugs reported zero findings, analyzer errors or missing classes in all three
+core production modules. Log: `/tmp/swrlapi-temporal-core.log`. The source/POM
+hashes captured before this gate match the final working-tree inputs.
+
+Verified **2026-11-27**, JDK 17 / Maven 3.9.14: the same **255 new parameterized
+cases** passed in both `UTC` and `America/Los_Angeles`, with zero failures, errors
+or skips. The matrices comprise 22 helper/wrapper boundaries, 156 duration-scaling
+cases, 62 calendar-arithmetic cases, 10 OWL value-semantics cases and five registered
+date-time subtraction cases. XML reports confirm both JVM timezone properties and
+matching case names. UTC evidence: `/tmp/swrlapi-temporal-utc.log`,
+`/tmp/swrlapi-temporal-registration-utc.log` and `/tmp/swrlapi-temporal-utc-reports/`.
+
+The first regression run exposed ten helper/wrapper failures, 48 scaling
+failures/errors and 38 calendar failures (`/tmp/swrlapi-temporal-before.log`);
+that diagnostic deliberately continued after failures. Five further tests failed
+because date-time subtraction was absent from the built-in registration list
+(`/tmp/swrlapi-temporal-registration-before.log`) and pass after correcting it.
+The huge-shift diagnostic was stopped; inspection of the installed JDK source
+confirmed month-by-month day addition. The final calendar matrix guards the direct
+whole-day calculation with large valid shifts, overflow errors and per-case timeouts.
+
+Before/after `javap -protected -s` output is identical across **319 library classes**
+and **156 engine classes**; the comparisons are
+`/tmp/swrlapi-temporal-api.diff` and `/tmp/swrlapi-drools-engine-temporal-api.diff`.
+No dependency or public signature changes were needed. Protégé remains clean at
+`7c6d34f921cd33affa7aa075e1e28b10236d3648`; the plugin was not rebuilt or retested,
+so its earlier packaged/GUI evidence predates these library changes.
 
 ### Bounded OWL 2 RL conformance audit
 
@@ -458,8 +712,8 @@ host and SWRLAPI sources directly, without installing or publishing host artifac
 All host tests passed, including its three native file-chooser cases. The host
 suite accesses public ontology/prefix services, unlike the offline SWRLAPI core
 gate. SpotBugs reports zero findings, analyzer errors, or missing classes across
-all five analyzed SWRLAPI production modules. No formatter gate is configured;
-nullness type checking remains separate roadmap work.
+all five analyzed SWRLAPI production modules. No formatter gate was configured in this earlier validation; current strict
+nullness enforcement is documented above.
 
 The packaged OSGi and graphical checks use the exact plugin from this build:
 SHA-256 `412b743076f97118f6c810b518a0b4015787583b5e857f3097088aa8ea2c92f1`.
@@ -567,7 +821,7 @@ all SWRLAPI siblings in one reactor from the SWRLAPI workspace:
 export JAVA_HOME=/Library/Java/JavaVirtualMachines/jdk-17.jdk/Contents/Home
 mvn -o -B -f swrlapi-project/ops/experiments/host-reactor.xml \
   -Dprotege.source=../../../../protege/protege \
-  -Pfull,static-analysis clean verify
+  -Pfull,nullness,static-analysis clean verify
 ```
 
 `protege.source` is a relative module path from `ops/experiments`, not the shell's

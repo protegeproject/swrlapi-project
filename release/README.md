@@ -29,7 +29,7 @@ From `swrlapi-project`:
 
 ```sh
 # Build/test all projects first.
-mvn -Pfull,static-analysis clean verify
+mvn -Pfull,nullness,static-analysis clean verify
 
 # Align release dependencies and set the five release versions and SCM tags.
 # Auxiliary project versions stay SNAPSHOT.
