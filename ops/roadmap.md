@@ -56,15 +56,7 @@ and operating instructions in [runbook.md](runbook.md).
    production sources, and regression checks for null-contract defects. Keep this
    distinct from SpotBugs and preserve public API compatibility.
 
-6. **README and GitHub documentation updates.** Update the sibling repository
-   READMEs and GitHub documentation/wiki for the OWLAPI 5 and Protégé 6 baseline,
-   supported build and test commands, and third-party built-in registration.
-   Document the extension-point namespace, factory implementation and lifecycle,
-   OSGi imports and shared API identity, collision/error behavior, and a working
-   contributor example. Completion: consistent links and instructions across the
-   repositories, with the registration example built and exercised in Protégé.
-
-7. **Notifications to Protégé developers.** Collect host issues and compatibility
+6. **Notifications to Protégé developers.** Collect host issues and compatibility
    requests worth communicating, with reproduction steps, affected versions,
    observed impact, and the smallest proposed correction. Current unsent notification:
    on macOS with JDK 17, unmodified `6.0.0-alpha-1` logs an `IllegalAccessException`

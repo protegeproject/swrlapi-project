@@ -1,174 +1,70 @@
-Shared contributor and agent rules: [AGENTS.md](AGENTS.md). Operational guidance: [runbook](ops/runbook.md). Open work: [roadmap](ops/roadmap.md).
+# SWRLAPI build project
 
-## SWRLAPI Build Project
+Build the SWRLAPI library, Drools engine, examples, and tests from sibling source
+checkouts. The `protege-6` branches use **2.1.5-SNAPSHOT**, **OWLAPI 5.5.1** and
+**Drools 7.74.1.Final**. This development snapshot is not a published Protégé 5 update.
 
-This project contains a Maven POM that builds a core set of SWRLAPI-related components.
-Currently it builds the [SWRLAPI](https://github.com/protegeproject/swrlapi.git), 
-the [SWRLAPI Drools Engine](https://github.com/protegeproject/swrlapi-drools-engine.git), 
-the [SWRLAPI Example](https://github.com/protegeproject/swrlapi-example.git) project, 
-the [SWRLAPI Integration Tests](https://github.com/protegeproject/swrlapi-integration-tests.git) project, 
-the standalone [SWRLTab](https://github.com/protegeproject/swrltab.git) application, 
-and the [Protégé SWRLTab Plugin](https://github.com/protegeproject/swrltab-plugin.git).
+Use **JDK 17** and **Maven 3.9** for the documented validation path; the libraries
+compile to Java 11 bytecode. Set `JAVA_HOME` to your JDK 17 installation. The core
+build needs no Protégé installation, credentials, running services or production data.
 
-#### Core library build (OWLAPI 5)
+## Get the source and run the core gate
 
-The `core` profile builds the local parent POM, SWRLAPI, the Drools engine,
-the example application, and the integration tests in one reactor. It excludes
-both SWRLTab modules. The separate `protege-plugin` profile adds the Protégé 6
-plugin to the core reactor; the standalone application remains deferred. See the
-[plugin experiment](ops/runbook.md#protege-6-plugin-experiment) for packaging and
-runtime verification commands.
+Run these commands from a new workspace directory. All checkouts must be siblings
+and use the same branch/version; `swrlapi-project` is an aggregator, not their parent directory.
 
-With those repositories checked out as sibling directories, run from
-`swrlapi-project`:
+```sh
+for repo in swrlapi-parent swrlapi-project swrlapi swrlapi-drools-engine \
+  swrlapi-example swrlapi-integration-tests; do
+  git clone --branch protege-6 "https://github.com/protegeproject/$repo.git"
+done
+mvn -B -f swrlapi-project/pom.xml -Pcore,static-analysis clean verify
+```
 
-    mvn -Pcore clean verify
+`verify` runs unit and integration tests and SpotBugs. `test` alone omits the
+Failsafe integration suite. The reactor builds the local parent and producers
+before consumers, including uncommitted source edits; a separate `install` is
+unnecessary. Add `-o` only when all required dependencies are already cached.
+Logs and reports are under each module's `target/` directory. SpotBugs is not
+Checker Framework nullness checking; no formatter gate is configured.
 
-Use Java 11 or later. Tests run headlessly and write logs under each module's
-`target/logs` directory. `verify` runs both the unit tests and the Failsafe
-integration tests; `test` alone does not run the integration suite. The local
-parent POM and aligned snapshot versions ensure the tests use the libraries
-built in this reactor, without requiring a separate `mvn install` first.
+The packaged example prints `x: 4` without needing an ontology file:
 
-This is a compatibility-first port to OWLAPI 5.5.1. Existing collection-based
-calls are retained where supported; a broad streams refactor is deferred.
-Downstream applications must recompile against OWLAPI 5. OWLAPI 5 normalizes
-language-free `rdf:PlainLiteral` values to `xsd:string`; read such query results
-with `isString()` / `getString()` rather than `isRDFPlainLiteral()` /
-`getRDFPlainLiteral()`. Language-tagged literals retain their language tags.
-The 2.1.5-SNAPSHOT parent manages patched Guava, Jackson, and XStream versions;
-see the [dependency baseline](ops/runbook.md#dependency-security-baseline).
+```sh
+java -jar swrlapi-example/target/swrlapi-example-2.1.5-SNAPSHOT-jar-with-dependencies.jar
+```
 
-The clean OWLAPI 4.5.27 baseline passed 166 unit tests and 607 integration
-tests. Current validation totals, outcomes, and exact commands are maintained in
-[the runbook](ops/runbook.md#last-validation). Core verification includes custom
-argument contracts, isolated OWL 2 RL rules, public reasoner and query integration,
-and temporal/duration regressions. Run the full gate with:
+## Choose the build scope
 
-    mvn -Pcore,static-analysis clean verify
+| Profiles | Modules and prerequisites |
+| --- | --- |
+| `core,static-analysis` | Parent, library, engine, example and integration tests; JDK 17 and Maven 3.9. |
+| `core,standalone,static-analysis` | Core plus the standalone Swing application; also clone `swrltab` on `protege-6`. |
+| `core,protege-plugin,static-analysis` | Core plus the Protégé plugin; also clone `swrltab-plugin` and provide the matching host APIs. |
+| `full,static-analysis` | All modules; clone both UI repositories and follow the host reactor instructions. |
 
-The `static-analysis` profile runs SpotBugs 4.10.4.1 at maximum effort and high
-confidence, failing `verify` on findings or analyzer errors. Reports are written to
-each module's `target/spotbugsXml.xml`. The old Checker Framework 1.9.13/JDK 8
-annotation processor remains disabled; SpotBugs does not replace its nullness
-type checking. Broader SpotBugs confidence levels are not part of this gate.
+`full` is the aggregator's default profile; select `core` explicitly for an
+independent library build. The standalone app has no Protégé dependency. The plugin
+targets **unmodified Protégé 6.0.0-alpha-1**, branch
+`protege6/release-6.0.0-alpha-1`; its build/runtime procedure is in the
+[plugin runbook](ops/runbook.md#prot%C3%A9g%C3%A9-6-plugin-experiment). Use the combined host
+reactor when host sources are needed, so the plugin consumes those sources rather
+than stale installed artifacts. Host dependency upgrades are not required by this workflow.
 
-Custom-argument contract tests cover equality, hashing, comparison laws, numeric
-and temporal ordering, mixed native/custom OWL objects, entity and expression
-signatures, current bindings, cycle-safe signature traversal, and signatures
-collected by enclosing native OWLAPI atoms. Mutable arguments must not be changed
-while used as hashed or sorted collection keys.
+## Documentation
 
-`getOWLReasoner()` returns a cached, non-buffering Drools reasoner. It materializes
-an isolated copy of the root ontology's imports closure on demand, including SWRL
-rules, and does not export inferred axioms into the source ontology. Changes,
-including removals and imported-ontology changes, invalidate the snapshot. The
-reasoner owns its inference session; dispose it when finished. A disposed accessor
-instance is replaced on the next call. Direct construction also supports buffering
-mode and `flush()`. Reasoner calls and ontology edits should be serialized;
-`interrupt()` can be called from another thread.
+- [OWLAPI 5 migration guide](docs/owlapi5-migration.md): compatibility, dependency ownership and supported reasoning boundaries.
+- [Third-party built-in registration](https://github.com/protegeproject/swrltab-plugin/blob/protege-6/docs/built-in-registration.md): a runnable OSGi contributor example and lifecycle contract.
+- [Runbook](ops/runbook.md): exact commands, dependency baseline, runtime behavior and validation evidence.
+- [Roadmap](ops/roadmap.md): remaining work; [shared development rules](AGENTS.md): contributor workflow.
+- [SWRL and SQWRL reference wiki](https://github.com/protegeproject/swrlapi/wiki): language and API background; use the branch guides above for this snapshot.
 
-The reasoner uses the default RL rule set independently of interactive rule
-selection and SQWRL query execution. It implements hierarchy, equivalence,
-disjointness, types, instances, property-value and identity queries, consistency,
-known empty-class detection, and materialized entailment checks. Unsupported
-entailment axiom types throw `UnsupportedEntailmentTypeException` and are reported
-by `isEntailmentCheckingSupported`. This is a view over the existing rule engine,
-with the inference limitations below; it is not a complete OWL 2 DL reasoner.
+To consume the snapshot in a separate Maven project, run the same core reactor
+with `install` instead of `verify`. This installs local artifacts and also runs the
+verification phases; it does not publish a release. Release publication has a
+separate [procedure](release/README.md).
 
-The class-expression rules now decompose intersections, require all operands when
-constructing intersections, and infer unions from either operand. Additional tests
-caught and fixed the missing object `hasValue` reverse rule, missing disjoint-data-
-property contradiction rule, omitted disjoint-class/negative-assertion imports,
-and reasoner index and consistency-reporting defects. `OWL2RLRuleTest` isolates
-rules so alternative schema inference paths cannot mask a broken rule.
 
-Temporal parsing validates complete XML Schema date/date-time values, respects
-explicit offsets, and retains millisecond precision through the existing
-`java.util.Date` APIs. Date-time serialization includes the offset and milliseconds;
-ordering uses instants rather than a 12-hour clock. Values without a timezone
-retain the historical interpretation in the JVM's default timezone.
+## License
 
-Duration arithmetic normalizes year/month values to signed months and day/time
-values to signed seconds. Scaling and division accept finite numeric factors,
-with XPath month rounding; zero divisors are rejected. Date/time differences use
-elapsed time, and duration parsing/results preserve fractional seconds instead of
-Axis's hundredth-second rounding. Duration equality and hashing normalize values;
-comparison provides a total order by normalized months and then seconds. This
-ordering does not equate months with a fixed number of elapsed days. The old Java helpers taking two durations for multiplication or
-returning a duration from division are deprecated and reject those dimensionally
-invalid calls; use the singular helper names taking a `BigDecimal` factor.
-
-Property chains and keys are compiled into ordinary Drools agenda rules, respecting
-rule selection. Chains support ordered paths, inverse operands/heads, and inferred
-edges. Keys require every property to have a shared value between named members of
-the key class; numeric data keys compare values across integer/decimal subtypes,
-while preserving language tags and disjoint datatype value spaces. Literal export
-preserves lexical forms and datatypes, including ill-typed values, so consistency
-checks can report a contradiction instead of failing during conversion.
-
-Datatype checks validate built-in lexical forms and numeric bounds, and propagate
-range/universal-restriction membership through data intersections. Disabling range,
-universal-restriction, or datatype rules disables their corresponding reasoning.
-Custom datatypes are left undecided. These tests establish the covered cases,
-not full RL conformance.
-
-Operating instructions and the ordered backlog now live in
-[ops/runbook.md](ops/runbook.md) and [ops/roadmap.md](ops/roadmap.md).
-
-The default `full` profile retains the historical module list below. It is not
-part of the core migration validation.
-
-#### Building
-
-To run the build process in this project, you must have the following items installed:
-
-+ [Java 11](https://www.oracle.com/java/technologies/downloads/archive/) or later
-+ A tool for checking out a [Git](https://git-scm.com/) repository
-+ Apache's [Maven](https://maven.apache.org/index.html)
-+ A Protégé (5.6.4 or higher) distribution. Download [here](https://protege.stanford.edu/products.php#desktop-protege).
-
-Create a suitable local directory and then clone the core SWRLAPI-related projects as follows:
-
-    git clone https://github.com/protegeproject/swrlapi-parent.git
-    git clone https://github.com/protegeproject/swrlapi-project.git
-    git clone https://github.com/protegeproject/swrlapi.git
-    git clone https://github.com/protegeproject/swrlapi-drools-engine.git
-    git clone https://github.com/protegeproject/swrlapi-example.git
-    git clone https://github.com/protegeproject/swrlapi-integration-tests.git
-    git clone https://github.com/protegeproject/swrltab.git
-    git clone https://github.com/protegeproject/swrltab-plugin.git
-
-Change into the SWRLAPI parent directory:
-
-    cd swrlapi-parent
-
-And then build the parent project with Maven:
-
-    mvn clean install
-
-Then change into the project directory:
-
-    cd ../swrlapi-project
-
-And then build everything with Maven:
-
-    mvn clean install
-
-The SWRLAPI integration tests can take quite a while to run. You can skip them as follows:
-
-    mvn -DskipTests=true clean install
-
-Documentation for the SWRLAPI library can be found [here](https://github.com/protegeproject/swrlapi/wiki).
-See the documentation for the [Protégé SWRLTab Plugin](https://github.com/protegeproject/swrltab-plugin.git) for details on installing the generated SWRLTab plugin in your local Protégé installation.
-
-#### License
-
-The software is licensed under the [BSD 2-clause License](https://github.com/protegeproject/swrltab-project/blob/master/license.txt).
-
-#### Questions
-
-If you have questions about this project, please go to the main
-Protégé website and subscribe to the [Protégé Developer Support
-mailing list](http://protege.stanford.edu/support.php#mailingListSupport).
-After subscribing, send messages to protege-dev at lists.stanford.edu.
+[BSD 2-Clause](license.txt), copyright Stanford University.

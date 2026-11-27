@@ -31,6 +31,7 @@ if graphical:
 with zipfile.ZipFile(output, 'w', zipfile.ZIP_DEFLATED) as jar:
     jar.writestr('META-INF/MANIFEST.MF', manifest.replace('\n', '\r\n'))
     jar.write(plugin / 'src/test/resources/contributor/plugin.xml', 'plugin.xml')
+    jar.write(plugin / 'license.txt', 'META-INF/LICENSE.txt')
     for name in ['ExampleLibrary', 'ExampleLibraryFactory']:
         entry = 'org/swrltab/fixture/' + name + '.class'
         jar.write(plugin / 'target/test-classes' / entry, entry)
